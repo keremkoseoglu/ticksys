@@ -1,0 +1,50 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_MSAG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <T100A>
+    <ARBGB>YTICKSYS</ARBGB>
+    <MASTERLANG>T</MASTERLANG>
+    <STEXT>Ticket sistemi</STEXT>
+   </T100A>
+   <T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>011</MSGNR>
+     <TEXT>Ticketing sistemi hatası</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>013</MSGNR>
+     <TEXT>&amp;1 sistemine HTTP Request gönderilirken bir hata oluştu</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>014</MSGNR>
+     <TEXT>&amp;1 sisteminden HTTP Response gelirken bir hata oluştu</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>015</MSGNR>
+     <TEXT>&amp;1 sisteminden gelen HTTP cevabı Parse edilemedi</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>016</MSGNR>
+     <TEXT>&amp;1 sisteminden HTTP Response olarak hata döndü</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>017</MSGNR>
+     <TEXT>&amp;1 &amp;2 Ticket&apos;ı valide edilemedi</TEXT>
+    </T100>
+   </T100>
+  </asx:values>
+ </asx:abap>
+</abapGit>
