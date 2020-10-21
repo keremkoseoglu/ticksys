@@ -51,7 +51,7 @@ Add a new entry to **YTTICKSYS_JIDEF** with the following values
 <table>
   <tr>
     <td><b>SYSID</b></td>
-    <td>Your SY-SYSID</td>
+    <td>(Your SY-SYSID)</td>
   </tr>
   <tr>
     <td><b>SEARCH_RFC_DEST</b></td>
