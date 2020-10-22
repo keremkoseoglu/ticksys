@@ -31,7 +31,7 @@ CLASS ycl_ticksys_jira DEFINITION
       RAISING ycx_addict_table_content.
 
     METHODS read_jira_issue
-      IMPORTING !ticket_key   TYPE yif_ticksys_ticketing_system=>ticket_key_dict
+      IMPORTING !ticket_key   TYPE yif_addict_system_rules=>ticket_key_dict
       RETURNING VALUE(output) TYPE string
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
