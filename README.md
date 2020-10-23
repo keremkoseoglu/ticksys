@@ -63,6 +63,6 @@ Check the menu **YTICKSYS** for any further configuration which may have been mi
 
 ## Implementing a new ticketing system
 
-Create a new class, implementing the interface **YIF_TICKSYS_TICKETING_SYSTEM** . You may inspect **YCL_TICKSYS_JIRA** as an implementation example.
+Create a new class, implementing the interface **YIF_ADDICT_TICKETING_SYSTEM** . You may inspect **YCL_TICKSYS_JIRA** as an implementation example.
 
 Register the new class into **YTTICKSYS_TICSY** as explained above, in Jira section.
