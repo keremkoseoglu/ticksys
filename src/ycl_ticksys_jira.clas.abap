@@ -4,7 +4,7 @@ CLASS ycl_ticksys_jira DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-    INTERFACES yif_ticksys_ticketing_system.
+    INTERFACES yif_addict_ticketing_system.
   PROTECTED SECTION.
   PRIVATE SECTION.
     TYPES: BEGIN OF bin_dict,
@@ -12,6 +12,8 @@ CLASS ycl_ticksys_jira DEFINITION
            END OF bin_dict,
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
+
+    constants ticsy_id type yd_ticksys_ticsy_id value 'JIRA'.
 
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
@@ -31,7 +33,7 @@ CLASS ycl_ticksys_jira DEFINITION
       RAISING ycx_addict_table_content.
 
     METHODS read_jira_issue
-      IMPORTING !ticket_key   TYPE yif_addict_system_rules=>ticket_key_dict
+      IMPORTING !ticket_id   TYPE yd_addict_ticket_id
       RETURNING VALUE(output) TYPE string
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
@@ -83,7 +85,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     http_client->request->set_form_field(
         name  = 'jql'
-        value = |issuekey={ ticket_key-ticket_id }| ).
+        value = |issuekey={ ticket_id }| ).
 
     http_client->request->set_form_field(
         name  = 'expand'
@@ -104,7 +106,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
         EXPORTING
           textid   = ycx_ticksys_ticketing_system=>http_request_error
-          ticsy_id = ticket_key-ticsy_id.
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     http_client->receive(
@@ -117,7 +119,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
         EXPORTING
           textid   = ycx_ticksys_ticketing_system=>http_response_error
-          ticsy_id = ticket_key-ticsy_id.
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     http_client->response->get_status( IMPORTING code = DATA(rc) ).
@@ -128,7 +130,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
         EXPORTING
           textid   = ycx_ticksys_ticketing_system=>http_responded_with_error
-          ticsy_id = ticket_key-ticsy_id.
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     DATA(len) = 0.
@@ -159,14 +161,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
         EXPORTING
           textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
-          ticsy_id = ticket_key-ticsy_id.
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     output = json_response.
   ENDMETHOD.
 
 
-  METHOD yif_ticksys_ticketing_system~is_ticket_id_valid.
+  METHOD yif_addict_ticketing_system~is_ticket_id_valid.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Checks if the ticket exists in the system
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -174,7 +176,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         lazy_read_jira_definitions( ).
 
         TRY.
-            read_jira_issue( ticket_key ).
+            read_jira_issue( ticket_id ).
             output = abap_true.
           CATCH cx_root.
             output = abap_false.

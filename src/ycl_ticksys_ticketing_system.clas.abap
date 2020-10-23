@@ -9,7 +9,7 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
            END OF key_dict.
 
     DATA def TYPE ytticksys_ticsy READ-ONLY.
-    DATA implementation TYPE REF TO yif_ticksys_ticketing_system READ-ONLY.
+    DATA implementation TYPE REF TO yif_addict_ticketing_system READ-ONLY.
 
     CLASS-METHODS get_instance
       IMPORTING !key       TYPE key_dict

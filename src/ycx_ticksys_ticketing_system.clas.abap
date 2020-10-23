@@ -1,85 +1,82 @@
-class YCX_TICKSYS_TICKETING_SYSTEM definition
-  public
-  inheriting from CX_STATIC_CHECK
-  create public .
+CLASS ycx_ticksys_ticketing_system DEFINITION
+  PUBLIC
+  INHERITING FROM ycx_addict_ticketing_system
+  CREATE PUBLIC .
 
-public section.
+  PUBLIC SECTION.
 
-  interfaces IF_T100_DYN_MSG .
-  interfaces IF_T100_MESSAGE .
 
-  constants:
-    begin of YCX_TICKSYS_TICKETING_SYSTEM,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '011',
-      attr1 type scx_attrname value '',
-      attr2 type scx_attrname value '',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of YCX_TICKSYS_TICKETING_SYSTEM .
-  constants:
-    begin of HTTP_REQUEST_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '013',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value '',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of HTTP_REQUEST_ERROR .
-  constants:
-    begin of HTTP_RESPONSE_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '014',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value '',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of HTTP_RESPONSE_ERROR .
-  constants:
-    begin of HTTP_RESPONSE_PARSE_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '015',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value '',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of HTTP_RESPONSE_PARSE_ERROR .
-  constants:
-    begin of HTTP_RESPONDED_WITH_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '016',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value '',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of HTTP_RESPONDED_WITH_ERROR .
-  data TICSY_ID type YD_TICKSYS_TICSY_ID .
+    CONSTANTS:
+      BEGIN OF ycx_ticksys_ticketing_system,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '011',
+        attr1 TYPE scx_attrname VALUE '',
+        attr2 TYPE scx_attrname VALUE '',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF ycx_ticksys_ticketing_system .
+    CONSTANTS:
+      BEGIN OF http_request_error,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '013',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE '',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF http_request_error .
+    CONSTANTS:
+      BEGIN OF http_response_error,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '014',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE '',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF http_response_error .
+    CONSTANTS:
+      BEGIN OF http_response_parse_error,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '015',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE '',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF http_response_parse_error .
+    CONSTANTS:
+      BEGIN OF http_responded_with_error,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '016',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE '',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF http_responded_with_error .
+    DATA ticsy_id TYPE yd_ticksys_ticsy_id .
 
-  methods CONSTRUCTOR
-    importing
-      !TEXTID like IF_T100_MESSAGE=>T100KEY optional
-      !PREVIOUS like PREVIOUS optional
-      !TICSY_ID type YD_TICKSYS_TICSY_ID optional .
-protected section.
-private section.
+    METHODS constructor
+      IMPORTING
+        !textid   LIKE if_t100_message=>t100key OPTIONAL
+        !previous LIKE previous OPTIONAL
+        !ticsy_id TYPE yd_ticksys_ticsy_id OPTIONAL .
+  PROTECTED SECTION.
+  PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS YCX_TICKSYS_TICKETING_SYSTEM IMPLEMENTATION.
+CLASS ycx_ticksys_ticketing_system IMPLEMENTATION.
 
 
-  method CONSTRUCTOR.
-CALL METHOD SUPER->CONSTRUCTOR
-EXPORTING
-PREVIOUS = PREVIOUS
-.
-me->TICSY_ID = TICSY_ID .
-clear me->textid.
-if textid is initial.
-  IF_T100_MESSAGE~T100KEY = YCX_TICKSYS_TICKETING_SYSTEM .
-else.
-  IF_T100_MESSAGE~T100KEY = TEXTID.
-endif.
-  endmethod.
+  METHOD constructor ##ADT_SUPPRESS_GENERATION.
+    CALL METHOD super->constructor
+      EXPORTING
+        previous = previous.
+    me->ticsy_id = ticsy_id .
+    CLEAR me->textid.
+    IF textid IS INITIAL.
+      if_t100_message~t100key = ycx_ticksys_ticketing_system .
+    ELSE.
+      if_t100_message~t100key = textid.
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.
