@@ -13,7 +13,10 @@ CLASS ycl_ticksys_jira DEFINITION
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
-    constants ticsy_id type yd_ticksys_ticsy_id value 'JIRA'.
+    TYPES: header_cache_set TYPE HASHED TABLE OF ysaddict_ticket_header
+                            WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
+
+    CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
 
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
@@ -27,14 +30,15 @@ CLASS ycl_ticksys_jira DEFINITION
                  search_rfc_dest TYPE fieldname VALUE 'SEARCH_RFC_DEST',
                END OF field.
 
+    CLASS-DATA header_cache TYPE header_cache_set.
     DATA jira_definitions TYPE ytticksys_jidef.
 
     METHODS lazy_read_jira_definitions
       RAISING ycx_addict_table_content.
 
-    METHODS read_jira_issue
-      IMPORTING !ticket_id   TYPE yd_addict_ticket_id
-      RETURNING VALUE(output) TYPE string
+    METHODS get_jira_header
+      IMPORTING !ticket_id    TYPE yd_addict_ticket_id
+      RETURNING VALUE(output) TYPE ysaddict_ticket_header
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
 ENDCLASS.
@@ -71,100 +75,120 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD read_jira_issue.
+  METHOD get_jira_header.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Reads the given Jira issue from the server
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    lazy_read_jira_definitions( ).
-
-    cl_http_client=>create_by_destination(
-      EXPORTING destination = me->jira_definitions-search_rfc_dest
-      IMPORTING client      = DATA(http_client) ).
-
-    http_client->request->set_method( if_http_request=>co_request_method_get ).
-
-    http_client->request->set_form_field(
-        name  = 'jql'
-        value = |issuekey={ ticket_id }| ).
-
-    http_client->request->set_form_field(
-        name  = 'expand'
-        value = 'names,renderedFields,schema,transitions,operations,editmeta,changelog' ).
-
-    http_client->request->set_form_field(
-        name  = 'maxResults'
-        value = '1' ).
-
-    http_client->send(
-      EXCEPTIONS http_communication_failure = 1
-                 http_invalid_state         = 2
-                 http_processing_failed     = 3
-                 http_invalid_timeout       = 4
-                 OTHERS                     = 5 ).
+    ASSIGN me->header_cache[ KEY primary_key COMPONENTS
+                             ticket_id = ticket_id
+                           ] TO FIELD-SYMBOL(<cache>).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+      DATA(cache) = VALUE ysaddict_ticket_header( ticket_id = ticket_id ).
+
+      lazy_read_jira_definitions( ).
+
+      cl_http_client=>create_by_destination(
+        EXPORTING destination = me->jira_definitions-search_rfc_dest
+        IMPORTING client      = DATA(http_client) ).
+
+      http_client->request->set_method( if_http_request=>co_request_method_get ).
+
+      http_client->request->set_form_field(
+          name  = 'jql'
+          value = |issuekey={ ticket_id }| ).
+
+      " Full list if needed:
+      " 'names,renderedFields,schema,transitions,operations,editmeta,changelog'
+      http_client->request->set_form_field(
+          name  = 'expand'
+          value = '' ).
+
+      http_client->request->set_form_field(
+          name  = 'maxResults'
+          value = '1' ).
+
+      http_client->send(
+        EXCEPTIONS http_communication_failure = 1
+                   http_invalid_state         = 2
+                   http_processing_failed     = 3
+                   http_invalid_timeout       = 4
+                   OTHERS                     = 5 ).
+
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            textid   = ycx_ticksys_ticketing_system=>http_request_error
+            ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      ENDIF.
+
+      http_client->receive(
+        EXCEPTIONS http_communication_failure = 1
+                   http_invalid_state         = 2
+                   http_processing_failed     = 3
+                   OTHERS                     = 4 ).
+
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            textid   = ycx_ticksys_ticketing_system=>http_response_error
+            ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      ENDIF.
+
+      http_client->response->get_status( IMPORTING code = DATA(rc) ).
+      DATA(response) = http_client->response->get_data( ).
+      http_client->close( ).
+
+      IF rc <> me->http_return-ok.
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            textid   = ycx_ticksys_ticketing_system=>http_responded_with_error
+            ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      ENDIF.
+
+      DATA(len) = 0.
+      DATA(bin) = VALUE bin_list( ).
+
+      CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
         EXPORTING
-          textid   = ycx_ticksys_ticketing_system=>http_request_error
-          ticsy_id = ycl_ticksys_jira=>ticsy_id.
+          buffer        = response
+        IMPORTING
+          output_length = len
+        TABLES
+          binary_tab    = bin.
+
+      DATA(json_response) = CONV string( space ).
+
+      CALL FUNCTION 'SCMS_BINARY_TO_STRING'
+        EXPORTING
+          input_length = len
+        IMPORTING
+          text_buffer  = json_response
+        TABLES
+          binary_tab   = bin
+        EXCEPTIONS
+          failed       = 1
+          OTHERS       = 2.
+
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
+            ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      ENDIF.
+
+      DATA(parser) = NEW /ui5/cl_json_parser( ).
+      parser->parse( json_response ).
+
+      cache-status_text = VALUE #( parser->m_entries[
+                            parent = '/issues/1/fields/status'
+                            name   = 'name'
+                          ]-value OPTIONAL ).
+
+      INSERT cache INTO TABLE me->header_cache ASSIGNING <cache>.
     ENDIF.
 
-    http_client->receive(
-      EXCEPTIONS http_communication_failure = 1
-                 http_invalid_state         = 2
-                 http_processing_failed     = 3
-                 OTHERS                     = 4 ).
-
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING
-          textid   = ycx_ticksys_ticketing_system=>http_response_error
-          ticsy_id = ycl_ticksys_jira=>ticsy_id.
-    ENDIF.
-
-    http_client->response->get_status( IMPORTING code = DATA(rc) ).
-    DATA(response) = http_client->response->get_data( ).
-    http_client->close( ).
-
-    IF rc <> me->http_return-ok.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING
-          textid   = ycx_ticksys_ticketing_system=>http_responded_with_error
-          ticsy_id = ycl_ticksys_jira=>ticsy_id.
-    ENDIF.
-
-    DATA(len) = 0.
-    DATA(bin) = VALUE bin_list( ).
-
-    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
-      EXPORTING
-        buffer        = response
-      IMPORTING
-        output_length = len
-      TABLES
-        binary_tab    = bin.
-
-    DATA(json_response) = CONV string( space ).
-
-    CALL FUNCTION 'SCMS_BINARY_TO_STRING'
-      EXPORTING
-        input_length = len
-      IMPORTING
-        text_buffer  = json_response
-      TABLES
-        binary_tab   = bin
-      EXCEPTIONS
-        failed       = 1
-        OTHERS       = 2.
-
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING
-          textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
-          ticsy_id = ycl_ticksys_jira=>ticsy_id.
-    ENDIF.
-
-    output = json_response.
+    output = <cache>.
   ENDMETHOD.
 
 
@@ -176,11 +200,26 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         lazy_read_jira_definitions( ).
 
         TRY.
-            read_jira_issue( ticket_id ).
+            get_jira_header( ticket_id ).
             output = abap_true.
           CATCH cx_root.
             output = abap_false.
         ENDTRY.
+
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_ticket_header.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the header of the ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        output = get_jira_header( ticket_id ).
 
       CATCH cx_root INTO DATA(diaper).
         RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
