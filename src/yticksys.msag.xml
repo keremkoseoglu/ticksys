@@ -17,6 +17,12 @@
     <T100>
      <SPRSL>T</SPRSL>
      <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>012</MSGNR>
+     <TEXT>&amp;1 sistemi için HTTP Client oluşturulamadı</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>013</MSGNR>
      <TEXT>&amp;1 sistemine HTTP Request gönderilirken bir hata oluştu</TEXT>
     </T100>
@@ -43,6 +49,12 @@
      <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>017</MSGNR>
      <TEXT>&amp;1 &amp;2 Ticket&apos;ı valide edilemedi</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>018</MSGNR>
+     <TEXT>&amp;1 sisteminde &amp;2 maddesinin statüsü &amp;3 olarak güncellenemedi</TEXT>
     </T100>
    </T100>
   </asx:values>

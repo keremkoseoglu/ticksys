@@ -5,6 +5,7 @@ CLASS ycl_ticksys_jira DEFINITION
 
   PUBLIC SECTION.
     INTERFACES yif_addict_ticketing_system.
+    CLASS-METHODS class_constructor.
   PROTECTED SECTION.
   PRIVATE SECTION.
     TYPES: BEGIN OF bin_dict,
@@ -16,28 +17,45 @@ CLASS ycl_ticksys_jira DEFINITION
     TYPES: header_cache_set TYPE HASHED TABLE OF ysaddict_ticket_header
                             WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
 
+    TYPES transition_set TYPE HASHED TABLE OF ytticksys_jitra
+          WITH UNIQUE KEY primary_key COMPONENTS from_status to_status.
+
     CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
 
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
                END OF http_return.
 
+    CONSTANTS: BEGIN OF status_code,
+                 ok TYPE char3 VALUE '204',
+               END OF status_code.
+
     CONSTANTS: BEGIN OF table,
-                 jira_def TYPE tabname VALUE 'YTTICKSYS_JIDEF',
+                 jira_def         TYPE tabname VALUE 'YTTICKSYS_JIDEF',
+                 jira_transitions TYPE tabname VALUE 'YTTICKSYS_JITRA',
                END OF table.
 
     CONSTANTS: BEGIN OF field,
-                 search_rfc_dest TYPE fieldname VALUE 'SEARCH_RFC_DEST',
+                 url      TYPE fieldname VALUE 'URL',
+                 username TYPE fieldname VALUE 'USERNAME',
+                 password TYPE fieldname VALUE 'PASSWORD',
                END OF field.
 
     CLASS-DATA header_cache TYPE header_cache_set.
-    DATA jira_definitions TYPE ytticksys_jidef.
+    CLASS-DATA jira_definitions TYPE ytticksys_jidef.
+    CLASS-DATA jira_transitions TYPE transition_set.
 
-    METHODS lazy_read_jira_definitions
+    CLASS-METHODS read_jira_definitions
       RAISING ycx_addict_table_content.
+
+    METHODS create_http_client
+      IMPORTING !url               TYPE clike
+      RETURNING VALUE(http_client) TYPE REF TO if_http_client
+      RAISING   ycx_ticksys_ticketing_system.
 
     METHODS get_jira_header
       IMPORTING !ticket_id    TYPE yd_addict_ticket_id
+                !bypass_cache TYPE abap_bool DEFAULT abap_false
       RETURNING VALUE(output) TYPE ysaddict_ticket_header
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
@@ -46,32 +64,90 @@ ENDCLASS.
 
 
 CLASS ycl_ticksys_jira IMPLEMENTATION.
-  METHOD lazy_read_jira_definitions.
+  METHOD class_constructor.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Called upon initial access
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        read_jira_definitions( ).
+      CATCH cx_root INTO DATA(diaper).
+        MESSAGE diaper TYPE ycl_simbal=>msgty-error.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD read_jira_definitions.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Reads & caches Jira based definitions
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    CHECK me->jira_definitions IS INITIAL.
-
     SELECT SINGLE * FROM ytticksys_jidef
            WHERE sysid = @sy-sysid
-           INTO CORRESPONDING FIELDS OF @me->jira_definitions.
+           INTO CORRESPONDING FIELDS OF @jira_definitions.
 
     IF sy-subrc <> 0.
       RAISE EXCEPTION TYPE ycx_addict_table_content
         EXPORTING
           textid   = ycx_addict_table_content=>no_entry_for_objectid
-          tabname  = me->table-jira_def
+          tabname  = ycl_ticksys_jira=>table-jira_def
           objectid = CONV #( sy-sysid ).
     ENDIF.
 
-    IF me->jira_definitions-search_rfc_dest IS INITIAL.
+    IF jira_definitions-url IS INITIAL.
       RAISE EXCEPTION TYPE ycx_addict_table_content
         EXPORTING
           textid    = ycx_addict_table_content=>entry_field_empty
-          tabname   = me->table-jira_def
-          fieldname = me->field-search_rfc_dest
-          objectid  = CONV #( sy-sysid ).
+          tabname   = ycl_ticksys_jira=>table-jira_def
+          objectid  = CONV #( sy-sysid )
+          fieldname = field-url.
     ENDIF.
+
+    IF jira_definitions-username IS INITIAL.
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING
+          textid    = ycx_addict_table_content=>entry_field_empty
+          tabname   = ycl_ticksys_jira=>table-jira_def
+          objectid  = CONV #( sy-sysid )
+          fieldname = field-username.
+    ENDIF.
+
+    IF jira_definitions-password IS INITIAL.
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING
+          textid    = ycx_addict_table_content=>entry_field_empty
+          tabname   = ycl_ticksys_jira=>table-jira_def
+          objectid  = CONV #( sy-sysid )
+          fieldname = field-password.
+    ENDIF.
+
+    SELECT * FROM ytticksys_jitra                       "#EC CI_NOWHERE
+             INTO TABLE @ycl_ticksys_jira=>jira_transitions.
+  ENDMETHOD.
+
+
+  METHOD create_http_client.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Creates a new HTTP client connecting to Jira
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    cl_http_client=>create_by_url(
+      EXPORTING url    = CONV #( url )
+      IMPORTING client = http_client
+      EXCEPTIONS argument_not_found = 1
+                 plugin_not_active  = 2
+                 internal_error     = 3
+                 OTHERS             = 4 ).
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING
+          textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
+          ticsy_id = me->ticsy_id.
+    ENDIF.
+
+    http_client->request->set_version( if_http_request=>co_protocol_version_1_0 ).
+
+    http_client->authenticate(
+        username = CONV #( me->jira_definitions-username )
+        password = CONV #( me->jira_definitions-password ) ).
   ENDMETHOD.
 
 
@@ -79,18 +155,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Reads the given Jira issue from the server
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    IF bypass_cache = abap_true.
+      DELETE me->header_cache WHERE ticket_id = ticket_id.
+    ENDIF.
+
     ASSIGN me->header_cache[ KEY primary_key COMPONENTS
                              ticket_id = ticket_id
                            ] TO FIELD-SYMBOL(<cache>).
-
     IF sy-subrc <> 0.
       DATA(cache) = VALUE ysaddict_ticket_header( ticket_id = ticket_id ).
-
-      lazy_read_jira_definitions( ).
-
-      cl_http_client=>create_by_destination(
-        EXPORTING destination = me->jira_definitions-search_rfc_dest
-        IMPORTING client      = DATA(http_client) ).
+      DATA(url)   = |{ me->jira_definitions-url }/rest/api/2/search|.
+      DATA(http_client) = create_http_client( url ).
 
       http_client->request->set_method( if_http_request=>co_request_method_get ).
 
@@ -180,6 +255,11 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       DATA(parser) = NEW /ui5/cl_json_parser( ).
       parser->parse( json_response ).
 
+      cache-status_id = VALUE #( parser->m_entries[
+                          parent = '/issues/1/fields/status'
+                          name   = 'id'
+                        ]-value OPTIONAL ).
+
       cache-status_text = VALUE #( parser->m_entries[
                             parent = '/issues/1/fields/status'
                             name   = 'name'
@@ -197,19 +277,10 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Checks if the ticket exists in the system
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        lazy_read_jira_definitions( ).
-
-        TRY.
-            get_jira_header( ticket_id ).
-            output = abap_true.
-          CATCH cx_root.
-            output = abap_false.
-        ENDTRY.
-
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        get_jira_header( ticket_id ).
+        output = abap_true.
+      CATCH cx_root.
+        output = abap_false.
     ENDTRY.
   ENDMETHOD.
 
@@ -221,10 +292,73 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     TRY.
         output = get_jira_header( ticket_id ).
 
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
         RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
           EXPORTING
             previous = diaper.
     ENDTRY.
   ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~set_ticket_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Sets the status of the ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        " Create HTTP client """"""""""""""""""""""""""""""""""""""""
+        DATA(url) = |{ me->jira_definitions-url }/rest/api/2/issue/{ ticket_id }/transitions|.
+        DATA(http_client) = create_http_client( url ).
+
+        " Create body """""""""""""""""""""""""""""""""""""""""""""""
+        DATA(current_status) = get_jira_header(
+            ticket_id    = ticket_id
+            bypass_cache = abap_true )-status_id.
+
+        TRY.
+            DATA(transition) = REF #( me->jira_transitions[
+                               KEY primary_key COMPONENTS
+                               from_status = current_status
+                               to_status   = status_id ] ).
+
+          CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
+            RAISE EXCEPTION TYPE ycx_addict_table_content
+              EXPORTING
+                textid   = ycx_addict_table_content=>no_entry_for_objectid
+                previous = itab_error
+                tabname  = table-jira_transitions
+                objectid = |{ current_status }-{ status_id }|.
+        ENDTRY.
+
+        DATA(body) = |\{"transition":\{"id":"{ transition->transition_id }"\}\}|.
+        DATA(rest_client) = NEW cl_rest_http_client( http_client ).
+
+        DATA(request) = rest_client->if_rest_client~create_request_entity( ).
+        request->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+        request->set_string_data( body ).
+
+        rest_client->if_rest_resource~post( request ).
+
+        DATA(response) = rest_client->if_rest_client~get_response_entity( ).
+        DATA(http_code) = response->get_header_field( '~status_code' ).
+
+        IF http_code <> status_code-ok.
+          RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+            EXPORTING
+              textid    = ycx_ticksys_ticketing_system=>status_update_error
+              ticsy_id  = me->ticsy_id
+              ticket_id = ticket_id
+              status_id = status_id.
+        ENDIF.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
 ENDCLASS.
