@@ -7,6 +7,7 @@ This package contains a framework, which enables integration between SAP and tic
 First, install dependencies.
 
 - [Addict](https://github.com/keremkoseoglu/addict)
+- [Simbal](https://github.com/keremkoseoglu/simbal)
 
 Then, install TickSys using [abapGit](https://github.com/abapGit/abapGit) .
 
@@ -33,20 +34,7 @@ Add a new entry to **YTTICKSYS_TICSY** with the following values:
   </tr>
 </table>
 
-Go to SM59 and create a new "HTTP Connection to External Server" entry. This should point to your Jira system.
-
-<table>
-  <tr>
-    <td><b>Target Host</b></td>
-    <td>(your root Jira URL)</td>
-  </tr>
-  <tr>
-    <td><b>Path Prefix</b></td>
-    <td>/rest/api/2/search</td>
-  </tr>
-</table>
-
-Add a new entry to **YTTICKSYS_JIDEF** with the following values
+Add a new entry to **YTTICKSYS_JIDEF** with the following values:
 
 <table>
   <tr>
@@ -54,8 +42,33 @@ Add a new entry to **YTTICKSYS_JIDEF** with the following values
     <td>(Your SY-SYSID)</td>
   </tr>
   <tr>
-    <td><b>SEARCH_RFC_DEST</b></td>
-    <td>(Name of the RFC destination you created above)</td>
+    <td><b>URL</b></td>
+    <td>(Your base Jira URL)</td>
+  </tr>
+  <tr>
+    <td><b>USERNAME</b></td>
+    <td>(Your Jira username)</td>
+  </tr>
+  <tr>
+    <td><b>PASSWORD</b></td>
+    <td>(Your Jira password)</td>
+  </tr>
+</table>
+
+Add new entries to **YTTICKSYS_JITRA** for each status transition. For each "STATUS A -> STATUS B" transition, Jira has a unique transition ID. This table stores those values. In You may need help from your Jira admin to get those ID's since they are not visible on the user interface.
+
+<table>
+  <tr>
+    <td><b>FROM_STATUS</b></td>
+    <td>(Source status ID)</td>
+  </tr>
+  <tr>
+    <td><b>TO_STATUS</b></td>
+    <td>(Target status ID)</td>
+  </tr>
+  <tr>
+    <td><b>TRANSITION_ID</b></td>
+    <td>(Transition ID)</td>
   </tr>
 </table>
 
