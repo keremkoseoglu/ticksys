@@ -14,11 +14,19 @@ CLASS ycl_ticksys_jira DEFINITION
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
-    TYPES: header_cache_set TYPE HASHED TABLE OF ysaddict_ticket_header
-                            WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
+    TYPES: BEGIN OF jira_cache_dict,
+             ticket_id   TYPE ysaddict_ticket_header-ticket_id,
+             header      TYPE ysaddict_ticket_header,
+             sub_tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
+           END OF jira_cache_dict,
+
+           jira_cache_set TYPE HASHED TABLE OF jira_cache_dict
+           WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
 
     TYPES transition_set TYPE HASHED TABLE OF ytticksys_jitra
           WITH UNIQUE KEY primary_key COMPONENTS from_status to_status.
+
+    TYPES string_range TYPE RANGE OF string.
 
     CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
 
@@ -41,9 +49,10 @@ CLASS ycl_ticksys_jira DEFINITION
                  password TYPE fieldname VALUE 'PASSWORD',
                END OF field.
 
-    CLASS-DATA header_cache TYPE header_cache_set.
+    CLASS-DATA jira_cache TYPE jira_cache_set.
     CLASS-DATA jira_definitions TYPE ytticksys_jidef.
     CLASS-DATA jira_transitions TYPE transition_set.
+    CLASS-DATA subtask_parent_rng TYPE string_range.
 
     CLASS-METHODS read_jira_definitions
       RAISING ycx_addict_table_content.
@@ -53,10 +62,10 @@ CLASS ycl_ticksys_jira DEFINITION
       RETURNING VALUE(http_client) TYPE REF TO if_http_client
       RAISING   ycx_ticksys_ticketing_system.
 
-    METHODS get_jira_header
+    METHODS get_jira_issue
       IMPORTING !ticket_id    TYPE yd_addict_ticket_id
                 !bypass_cache TYPE abap_bool DEFAULT abap_false
-      RETURNING VALUE(output) TYPE ysaddict_ticket_header
+      RETURNING VALUE(output) TYPE jira_cache_dict
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
 ENDCLASS.
@@ -73,6 +82,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH cx_root INTO DATA(diaper).
         MESSAGE diaper TYPE ycl_simbal=>msgty-error.
     ENDTRY.
+
+    ycl_ticksys_jira=>subtask_parent_rng = VALUE #(
+        ( sign   = ycl_addict_toolkit=>sign-include
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*/fields/subtasks/*' )
+        ( sign   = ycl_addict_toolkit=>sign-exclude
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*/fields/subtasks/*/*' ) ).
   ENDMETHOD.
 
 
@@ -151,19 +168,22 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
 
-  METHOD get_jira_header.
+  METHOD get_jira_issue.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Reads the given Jira issue from the server
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     IF bypass_cache = abap_true.
-      DELETE me->header_cache WHERE ticket_id = ticket_id.
+      DELETE me->jira_cache WHERE ticket_id = ticket_id.
     ENDIF.
 
-    ASSIGN me->header_cache[ KEY primary_key COMPONENTS
-                             ticket_id = ticket_id
-                           ] TO FIELD-SYMBOL(<cache>).
+    ASSIGN me->jira_cache[ KEY primary_key COMPONENTS
+                           ticket_id = ticket_id
+                         ] TO FIELD-SYMBOL(<cache>).
     IF sy-subrc <> 0.
-      DATA(cache) = VALUE ysaddict_ticket_header( ticket_id = ticket_id ).
+      DATA(cache) = VALUE jira_cache_dict(
+          ticket_id = ticket_id
+          header    = VALUE #( ticket_id = ticket_id ) ).
+
       DATA(url)   = |{ me->jira_definitions-url }/rest/api/2/search|.
       DATA(http_client) = create_http_client( url ).
 
@@ -255,17 +275,21 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       DATA(parser) = NEW /ui5/cl_json_parser( ).
       parser->parse( json_response ).
 
-      cache-status_id = VALUE #( parser->m_entries[
-                          parent = '/issues/1/fields/status'
-                          name   = 'id'
-                        ]-value OPTIONAL ).
+      cache-header-status_id = VALUE #( parser->m_entries[
+          parent = '/issues/1/fields/status'
+          name   = 'id' ]-value OPTIONAL ).
 
-      cache-status_text = VALUE #( parser->m_entries[
-                            parent = '/issues/1/fields/status'
-                            name   = 'name'
-                          ]-value OPTIONAL ).
+      cache-header-status_text = VALUE #( parser->m_entries[
+          parent = '/issues/1/fields/status'
+          name   = 'name' ]-value OPTIONAL ).
 
-      INSERT cache INTO TABLE me->header_cache ASSIGNING <cache>.
+      cache-sub_tickets = VALUE #(
+          FOR _entry IN parser->m_entries
+          WHERE ( parent IN me->subtask_parent_rng AND
+                  name = 'key' )
+          ( CONV #( _entry-value ) ) ).
+
+      INSERT cache INTO TABLE me->jira_cache ASSIGNING <cache>.
     ENDIF.
 
     output = <cache>.
@@ -277,7 +301,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Checks if the ticket exists in the system
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        get_jira_header( ticket_id ).
+        get_jira_issue( ticket_id ).
         output = abap_true.
       CATCH cx_root.
         output = abap_false.
@@ -290,7 +314,24 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Returns the header of the ticket
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        output = get_jira_header( ticket_id ).
+        output = get_jira_issue( ticket_id )-header.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_sub_tickets.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the sub-tickets of the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        children = get_jira_issue( parent )-sub_tickets.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
@@ -312,9 +353,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_client) = create_http_client( url ).
 
         " Create body """""""""""""""""""""""""""""""""""""""""""""""
-        DATA(current_status) = get_jira_header(
+        DATA(current_status) = get_jira_issue(
             ticket_id    = ticket_id
-            bypass_cache = abap_true )-status_id.
+            bypass_cache = abap_true )-header-status_id.
 
         TRY.
             DATA(transition) = REF #( me->jira_transitions[
@@ -360,5 +401,4 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             previous = diaper.
     ENDTRY.
   ENDMETHOD.
-
 ENDCLASS.
