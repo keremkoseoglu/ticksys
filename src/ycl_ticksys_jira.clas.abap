@@ -283,6 +283,10 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           parent = '/issues/1/fields/status'
           name   = 'name' ]-value OPTIONAL ).
 
+      cache-header-parent_ticket_id = VALUE #( parser->m_entries[
+          parent = '/issues/1/fields/parent'
+          name   = 'key' ]-value OPTIONAL ).
+
       cache-sub_tickets = VALUE #(
           FOR _entry IN parser->m_entries
           WHERE ( parent IN me->subtask_parent_rng AND
