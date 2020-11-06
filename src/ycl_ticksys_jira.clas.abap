@@ -283,6 +283,12 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           parent = '/issues/1/fields/status'
           name   = 'name' ]-value OPTIONAL ).
 
+      cache-header-completed = xsdbool(
+          VALUE string( parser->m_entries[
+                        parent = '/issues/1/fields/status/statusCategory'
+                        name   = 'key' ]-value OPTIONAL
+                      ) = 'done' ).
+
       cache-header-parent_ticket_id = VALUE #( parser->m_entries[
           parent = '/issues/1/fields/parent'
           name   = 'key' ]-value OPTIONAL ).
@@ -405,4 +411,5 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             previous = diaper.
     ENDTRY.
   ENDMETHOD.
+
 ENDCLASS.
