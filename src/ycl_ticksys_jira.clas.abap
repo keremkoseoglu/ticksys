@@ -8,25 +8,36 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-METHODS class_constructor.
   PROTECTED SECTION.
   PRIVATE SECTION.
+    TYPES jira_field_list TYPE STANDARD TABLE OF yd_ticksys_jira_field WITH EMPTY KEY.
+    TYPES jista_list TYPE STANDARD TABLE OF ytticksys_jista WITH EMPTY KEY.
+    TYPES string_range TYPE RANGE OF string.
+
+    TYPES transition_set TYPE HASHED TABLE OF ytticksys_jitra
+          WITH UNIQUE KEY primary_key COMPONENTS from_status to_status.
+
     TYPES: BEGIN OF bin_dict,
              line TYPE x LENGTH 255,
            END OF bin_dict,
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
+    TYPES: BEGIN OF custom_field_value_dict,
+             jira_field TYPE yd_ticksys_jira_field,
+             value      TYPE string,
+           END OF custom_field_value_dict,
+
+           custom_field_value_set TYPE HASHED TABLE OF custom_field_value_dict
+           WITH UNIQUE KEY primary_key COMPONENTS jira_field.
+
     TYPES: BEGIN OF jira_cache_dict,
-             ticket_id   TYPE ysaddict_ticket_header-ticket_id,
-             header      TYPE ysaddict_ticket_header,
-             sub_tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
+             ticket_id     TYPE ysaddict_ticket_header-ticket_id,
+             header        TYPE ysaddict_ticket_header,
+             sub_tickets   TYPE yif_addict_ticketing_system=>ticket_id_list,
+             custom_fields TYPE custom_field_value_set,
            END OF jira_cache_dict,
 
            jira_cache_set TYPE HASHED TABLE OF jira_cache_dict
            WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
-
-    TYPES transition_set TYPE HASHED TABLE OF ytticksys_jitra
-          WITH UNIQUE KEY primary_key COMPONENTS from_status to_status.
-
-    TYPES string_range TYPE RANGE OF string.
 
     CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
 
@@ -52,10 +63,10 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-DATA jira_cache TYPE jira_cache_set.
     CLASS-DATA jira_definitions TYPE ytticksys_jidef.
     CLASS-DATA jira_transitions TYPE transition_set.
+    CLASS-DATA jira_status_assignee_fields TYPE jista_list.
     CLASS-DATA subtask_parent_rng TYPE string_range.
 
-    CLASS-METHODS read_jira_definitions
-      RAISING ycx_addict_table_content.
+    CLASS-METHODS read_jira_definitions RAISING ycx_addict_table_content.
 
     METHODS create_http_client
       IMPORTING !url               TYPE clike
@@ -68,6 +79,10 @@ CLASS ycl_ticksys_jira DEFINITION
       RETURNING VALUE(output) TYPE jira_cache_dict
       RAISING   ycx_ticksys_ticketing_system
                 ycx_addict_table_content.
+
+    METHODS get_assignee_fields_for_status
+      IMPORTING !status_id    TYPE yd_addict_ticket_status_id
+      RETURNING VALUE(fields) TYPE jira_field_list.
 ENDCLASS.
 
 
@@ -138,6 +153,10 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     SELECT * FROM ytticksys_jitra                       "#EC CI_NOWHERE
              INTO TABLE @ycl_ticksys_jira=>jira_transitions.
+
+    SELECT * FROM ytticksys_jista                       "#EC CI_NOWHERE
+             ORDER BY status_id, priority
+             INTO TABLE @ycl_ticksys_jira=>jira_status_assignee_fields.
   ENDMETHOD.
 
 
@@ -293,16 +312,60 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           parent = '/issues/1/fields/parent'
           name   = 'key' ]-value OPTIONAL ).
 
-      cache-sub_tickets = VALUE #(
+      cache-header-type_id = VALUE #( parser->m_entries[
+          parent = '/issues/1/fields/issuetype'
+          name   = 'id' ]-value OPTIONAL ).
+
+      cache-header-type_text = VALUE #( parser->m_entries[
+          parent = '/issues/1/fields/issuetype'
+          name   = 'name' ]-value OPTIONAL ).
+
+      cache-sub_tickets = VALUE #(                      "#EC CI_SORTSEQ
           FOR _entry IN parser->m_entries
           WHERE ( parent IN me->subtask_parent_rng AND
                   name = 'key' )
           ( CONV #( _entry-value ) ) ).
 
+      LOOP AT me->jira_status_assignee_fields
+              INTO DATA(_jsaf)
+              GROUP BY ( jira_field = _jsaf-jira_field )
+              ASSIGNING FIELD-SYMBOL(<jsaf>).
+
+        ASSIGN parser->m_entries[
+                 parent = |/issues/1/fields/{ <jsaf>-jira_field }|
+                 name   = 'name'
+               ] TO FIELD-SYMBOL(<custom_field>).
+
+        CHECK sy-subrc = 0.
+
+        INSERT VALUE custom_field_value_dict(
+                 jira_field = <jsaf>-jira_field
+                 value      = <custom_field>-value
+               ) INTO TABLE cache-custom_fields.
+      ENDLOOP.
+
       INSERT cache INTO TABLE me->jira_cache ASSIGNING <cache>.
     ENDIF.
 
     output = <cache>.
+  ENDMETHOD.
+
+
+  METHOD get_assignee_fields_for_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns assignee fields for the given status
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    APPEND LINES OF VALUE ycl_ticksys_jira=>jira_field_list(
+             FOR _jsaf IN me->jira_status_assignee_fields
+             WHERE ( status_id = status_id )
+             ( _jsaf-jira_field )
+           ) TO fields.
+
+    APPEND LINES OF VALUE ycl_ticksys_jira=>jira_field_list(
+             FOR _jsaf IN me->jira_status_assignee_fields
+             WHERE ( status_id = space )
+             ( _jsaf-jira_field )
+           ) TO fields.
   ENDMETHOD.
 
 
@@ -409,6 +472,82 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
           EXPORTING
             previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~set_ticket_assignee.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Sets the ticket assignee
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        DATA(url) = |{ me->jira_definitions-url }/rest/api/2/issue/{ ticket_id }|.
+        DATA(http_client) = create_http_client( url ).
+
+        DATA(body) = |\{"fields":\{"assignee":\{"name":"{ assignee }"\}\}\}|.
+        DATA(rest_client) = NEW cl_rest_http_client( http_client ).
+
+        DATA(request) = rest_client->if_rest_client~create_request_entity( ).
+        request->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+        request->set_string_data( body ).
+
+        rest_client->if_rest_resource~put( request ).
+
+        DATA(response) = rest_client->if_rest_client~get_response_entity( ).
+        DATA(http_code) = response->get_header_field( '~status_code' ).
+
+        IF http_code <> me->status_code-ok.
+          RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+            EXPORTING
+              ticket_id = ticket_id.
+        ENDIF.
+
+      CATCH ycx_ticksys_assignee_update INTO DATA(status_error).
+        RAISE EXCEPTION status_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+          EXPORTING
+            ticket_id = ticket_id
+            previous  = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~set_ticket_assignee_for_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Sets the ticket assignee which corresponds to the provided status
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        DATA(ticket) = get_jira_issue( ticket_id ).
+        DATA(field_candidates) = get_assignee_fields_for_status( status_id ).
+
+        LOOP AT field_candidates ASSIGNING FIELD-SYMBOL(<field>).
+          ASSIGN ticket-custom_fields[
+                   KEY primary_key COMPONENTS
+                   jira_field = <field>
+                 ] TO FIELD-SYMBOL(<custom_field>).
+
+          CHECK sy-subrc = 0 AND <custom_field>-value IS NOT INITIAL.
+
+          yif_addict_ticketing_system~set_ticket_assignee(
+              ticket_id = ticket_id
+              assignee  = <custom_field>-value ).
+
+          RETURN.
+        ENDLOOP.
+
+        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+          EXPORTING
+            textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
+            ticket_id = ticket_id.
+
+      CATCH ycx_ticksys_assignee_update INTO DATA(status_error).
+        RAISE EXCEPTION status_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+          EXPORTING
+            ticket_id = ticket_id
+            previous  = diaper.
     ENDTRY.
   ENDMETHOD.
 

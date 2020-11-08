@@ -11,6 +11,18 @@
     <T100>
      <SPRSL>T</SPRSL>
      <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>000</MSGNR>
+     <TEXT>&amp;1 &amp;2 Ticket&apos;ı için güncelleme kuralı bulunamadı</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>001</MSGNR>
+     <TEXT>&amp;1 &amp;2 Ticket&apos;ının statüsü güncellenemedi</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>011</MSGNR>
      <TEXT>Ticketing sistemi hatası</TEXT>
     </T100>
@@ -55,6 +67,24 @@
      <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>018</MSGNR>
      <TEXT>&amp;1 sisteminde &amp;2 maddesinin statüsü &amp;3 olarak güncellenemedi</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>604</MSGNR>
+     <TEXT>&amp;1 maddesinin kişisi güncellenemedi</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>605</MSGNR>
+     <TEXT>Kişi güncelleme hazırlığı başarısız oldu</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>606</MSGNR>
+     <TEXT>&amp;1 maddesine atanacak yeni kişi tespit edilemedi</TEXT>
     </T100>
    </T100>
   </asx:values>
