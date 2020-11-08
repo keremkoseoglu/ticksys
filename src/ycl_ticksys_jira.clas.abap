@@ -502,13 +502,12 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
               ticket_id = ticket_id.
         ENDIF.
 
-      CATCH ycx_ticksys_assignee_update INTO DATA(status_error).
-        RAISE EXCEPTION status_error.
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
           EXPORTING
-            ticket_id = ticket_id
-            previous  = diaper.
+            previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -541,13 +540,12 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
             ticket_id = ticket_id.
 
-      CATCH ycx_ticksys_assignee_update INTO DATA(status_error).
-        RAISE EXCEPTION status_error.
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
           EXPORTING
-            ticket_id = ticket_id
-            previous  = diaper.
+            previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
