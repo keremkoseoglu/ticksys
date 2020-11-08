@@ -60,15 +60,32 @@ Add new entries to **YTTICKSYS_JITRA** for each status transition. For each "STA
 <table>
   <tr>
     <td><b>FROM_STATUS</b></td>
-    <td>(Source status ID)</td>
+    <td>(Source status ID. Sample: 10306)</td>
   </tr>
   <tr>
     <td><b>TO_STATUS</b></td>
-    <td>(Target status ID)</td>
+    <td>(Target status ID. Sample: 10313)</td>
   </tr>
   <tr>
     <td><b>TRANSITION_ID</b></td>
-    <td>(Transition ID)</td>
+    <td>(Transition ID. Sample: 91)</td>
+  </tr>
+</table>
+
+Add new entries to **YTTICKSYS_JISTA** . This table determines the assignee to be assigned to the issue after a status update.
+
+<table>
+  <tr>
+    <td><b>STATUS_ID</b></td>
+    <td>(Source status ID, leave blank for default. Sample: 10306)</td>
+  </tr>
+  <tr>
+    <td><b>JIRA_FIELD</b></td>
+    <td>(Field name containing the assignee. Sample: customfield_10114)</td>
+  </tr>
+  <tr>
+    <td><b>PRIORITY</b></td>
+    <td>(Priority of this rule)</td>
   </tr>
 </table>
 
