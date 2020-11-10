@@ -30,10 +30,11 @@ CLASS ycl_ticksys_jira DEFINITION
            WITH UNIQUE KEY primary_key COMPONENTS jira_field.
 
     TYPES: BEGIN OF jira_cache_dict,
-             ticket_id     TYPE ysaddict_ticket_header-ticket_id,
-             header        TYPE ysaddict_ticket_header,
-             sub_tickets   TYPE yif_addict_ticketing_system=>ticket_id_list,
-             custom_fields TYPE custom_field_value_set,
+             ticket_id      TYPE ysaddict_ticket_header-ticket_id,
+             header         TYPE ysaddict_ticket_header,
+             custom_fields  TYPE custom_field_value_set,
+             sub_tickets    TYPE yif_addict_ticketing_system=>ticket_id_list,
+             linked_tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
            END OF jira_cache_dict,
 
            jira_cache_set TYPE HASHED TABLE OF jira_cache_dict
@@ -65,6 +66,7 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-DATA jira_transitions TYPE transition_set.
     CLASS-DATA jira_status_assignee_fields TYPE jista_list.
     CLASS-DATA subtask_parent_rng TYPE string_range.
+    class-data issue_link_parent_rng type string_range.
 
     CLASS-METHODS read_jira_definitions RAISING ycx_addict_table_content.
 
@@ -105,6 +107,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         ( sign   = ycl_addict_toolkit=>sign-exclude
           option = ycl_addict_toolkit=>option-cp
           low    = '/issues/*/fields/subtasks/*/*' ) ).
+
+    ycl_ticksys_jira=>issue_link_parent_rng = VALUE #(
+        ( sign   = ycl_addict_toolkit=>sign-include
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*/fields/issuelinks/*/inwardIssue' )
+        ( sign   = ycl_addict_toolkit=>sign-include
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*/fields/issuelinks/*/outwardIssue' ) ).
   ENDMETHOD.
 
 
@@ -199,10 +209,12 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                            ticket_id = ticket_id
                          ] TO FIELD-SYMBOL(<cache>).
     IF sy-subrc <> 0.
+      " Preparation """""""""""""""""""""""""""""""""""""""""""""""""
       DATA(cache) = VALUE jira_cache_dict(
           ticket_id = ticket_id
           header    = VALUE #( ticket_id = ticket_id ) ).
 
+      " HTTP """"""""""""""""""""""""""""""""""""""""""""""""""""""""
       DATA(url)   = |{ me->jira_definitions-url }/rest/api/2/search|.
       DATA(http_client) = create_http_client( url ).
 
@@ -260,6 +272,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             ticsy_id = ycl_ticksys_jira=>ticsy_id.
       ENDIF.
 
+      " Parse """""""""""""""""""""""""""""""""""""""""""""""""""""""
       DATA(len) = 0.
       DATA(bin) = VALUE bin_list( ).
 
@@ -294,6 +307,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       DATA(parser) = NEW /ui5/cl_json_parser( ).
       parser->parse( json_response ).
 
+      " Read values """""""""""""""""""""""""""""""""""""""""""""""""
       cache-header-status_id = VALUE #( parser->m_entries[
           parent = '/issues/1/fields/status'
           name   = 'id' ]-value OPTIONAL ).
@@ -321,10 +335,18 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           name   = 'name' ]-value OPTIONAL ).
 
       cache-sub_tickets = VALUE #(                      "#EC CI_SORTSEQ
-          FOR _entry IN parser->m_entries
+          FOR groups _value of _entry IN parser->m_entries
           WHERE ( parent IN me->subtask_parent_rng AND
                   name = 'key' )
-          ( CONV #( _entry-value ) ) ).
+          group by _entry-value
+          ( CONV #( _value ) ) ).
+
+      cache-linked_tickets = VALUE #(                      "#EC CI_SORTSEQ
+          FOR groups _value of _entry IN parser->m_entries
+          WHERE ( parent IN me->issue_link_parent_rng AND
+                  name = 'key' )
+          group by _entry-value
+          ( CONV #( _value ) ) ).
 
       LOOP AT me->jira_status_assignee_fields
               INTO DATA(_jsaf)
@@ -344,6 +366,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                ) INTO TABLE cache-custom_fields.
       ENDLOOP.
 
+      " Flush """""""""""""""""""""""""""""""""""""""""""""""""""""""
       INSERT cache INTO TABLE me->jira_cache ASSIGNING <cache>.
     ENDIF.
 
@@ -405,6 +428,23 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
         children = get_jira_issue( parent )-sub_tickets.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_linked_tickets.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns tickets which are linked to the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        tickets = get_jira_issue( ticket_id )-linked_tickets.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
@@ -548,5 +588,4 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             previous = diaper.
     ENDTRY.
   ENDMETHOD.
-
 ENDCLASS.
