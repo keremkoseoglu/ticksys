@@ -89,6 +89,15 @@ Add new entries to **YTTICKSYS_JISTA** . This table determines the assignee to b
   </tr>
 </table>
 
+If you have custom fields for request transportation instructions, you need to register their custom fields into **YTTICKSYS_JITIF** .
+
+<table>
+  <tr>
+    <td><b>JIRA_FIELD</b></td>
+    <td>(Field name containing instructions. Sample: customfield_10427)</td>
+  </tr>
+</table>
+
 Check the menu **YTICKSYS** for any further configuration which may have been missed in this document.
 
 ## Implementing a new ticketing system
