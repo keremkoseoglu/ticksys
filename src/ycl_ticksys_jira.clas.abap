@@ -30,11 +30,12 @@ CLASS ycl_ticksys_jira DEFINITION
            WITH UNIQUE KEY primary_key COMPONENTS jira_field.
 
     TYPES: BEGIN OF jira_cache_dict,
-             ticket_id      TYPE ysaddict_ticket_header-ticket_id,
-             header         TYPE ysaddict_ticket_header,
-             custom_fields  TYPE custom_field_value_set,
-             sub_tickets    TYPE yif_addict_ticketing_system=>ticket_id_list,
-             linked_tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
+             ticket_id              TYPE ysaddict_ticket_header-ticket_id,
+             header                 TYPE ysaddict_ticket_header,
+             custom_fields          TYPE custom_field_value_set,
+             sub_tickets            TYPE yif_addict_ticketing_system=>ticket_id_list,
+             linked_tickets         TYPE yif_addict_ticketing_system=>ticket_id_list,
+             transport_instructions TYPE string,
            END OF jira_cache_dict,
 
            jira_cache_set TYPE HASHED TABLE OF jira_cache_dict
@@ -66,7 +67,8 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-DATA jira_transitions TYPE transition_set.
     CLASS-DATA jira_status_assignee_fields TYPE jista_list.
     CLASS-DATA subtask_parent_rng TYPE string_range.
-    class-data issue_link_parent_rng type string_range.
+    CLASS-DATA issue_link_parent_rng TYPE string_range.
+    CLASS-DATA transport_instruction_fields TYPE jira_field_list.
 
     CLASS-METHODS read_jira_definitions RAISING ycx_addict_table_content.
 
@@ -167,6 +169,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     SELECT * FROM ytticksys_jista                       "#EC CI_NOWHERE
              ORDER BY status_id, priority
              INTO TABLE @ycl_ticksys_jira=>jira_status_assignee_fields.
+
+    SELECT jira_field FROM ytticksys_jitif              "#EC CI_NOWHERE
+           INTO TABLE @ycl_ticksys_jira=>transport_instruction_fields.
   ENDMETHOD.
 
 
@@ -335,17 +340,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           name   = 'name' ]-value OPTIONAL ).
 
       cache-sub_tickets = VALUE #(                      "#EC CI_SORTSEQ
-          FOR groups _value of _entry IN parser->m_entries
+          FOR GROUPS _value OF _entry IN parser->m_entries
           WHERE ( parent IN me->subtask_parent_rng AND
                   name = 'key' )
-          group by _entry-value
+          GROUP BY _entry-value
           ( CONV #( _value ) ) ).
 
-      cache-linked_tickets = VALUE #(                      "#EC CI_SORTSEQ
-          FOR groups _value of _entry IN parser->m_entries
+      cache-linked_tickets = VALUE #(                   "#EC CI_SORTSEQ
+          FOR GROUPS _value OF _entry IN parser->m_entries
           WHERE ( parent IN me->issue_link_parent_rng AND
                   name = 'key' )
-          group by _entry-value
+          GROUP BY _entry-value
           ( CONV #( _value ) ) ).
 
       LOOP AT me->jira_status_assignee_fields
@@ -364,6 +369,20 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                  jira_field = <jsaf>-jira_field
                  value      = <custom_field>-value
                ) INTO TABLE cache-custom_fields.
+      ENDLOOP.
+
+      LOOP AT me->transport_instruction_fields ASSIGNING FIELD-SYMBOL(<tif>).
+        ASSIGN parser->m_entries[
+                 parent = |/issues/1/fields|
+                 name   = <tif>
+               ] TO FIELD-SYMBOL(<tif_value>).
+
+        CHECK sy-subrc = 0 AND <tif_value>-value IS NOT INITIAL.
+
+        cache-transport_instructions =
+            |{ cache-transport_instructions }| &&
+            |{ COND #( WHEN cache-transport_instructions IS NOT INITIAL THEN ` `) }| &&
+            |{ <tif_value>-value }|.
       ENDLOOP.
 
       " Flush """""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -411,6 +430,26 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
         output = get_jira_issue( ticket_id )-header.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_transport_instructions.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns transport instructions from Jira
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        DATA(issue) = get_jira_issue( ticket_id ).
+        IF issue-transport_instructions IS NOT INITIAL.
+          instructions = VALUE #( ( issue-transport_instructions ) ).
+        ENDIF.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
