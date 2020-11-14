@@ -35,11 +35,20 @@ CLASS ycl_ticksys_jira DEFINITION
              custom_fields          TYPE custom_field_value_set,
              sub_tickets            TYPE yif_addict_ticketing_system=>ticket_id_list,
              linked_tickets         TYPE yif_addict_ticketing_system=>ticket_id_list,
+             tcodes                 TYPE yif_addict_ticketing_system=>tcode_list,
              transport_instructions TYPE string,
            END OF jira_cache_dict,
 
            jira_cache_set TYPE HASHED TABLE OF jira_cache_dict
            WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
+
+    TYPES: BEGIN OF tcode_ticket_dict,
+             tcode   TYPE tcode,
+             tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
+           END OF tcode_ticket_dict,
+
+           tcode_ticket_set TYPE HASHED TABLE OF tcode_ticket_dict
+           WITH UNIQUE KEY primary_key COMPONENTS tcode.
 
     CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
 
@@ -68,13 +77,22 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-DATA jira_status_assignee_fields TYPE jista_list.
     CLASS-DATA subtask_parent_rng TYPE string_range.
     CLASS-DATA issue_link_parent_rng TYPE string_range.
+    CLASS-DATA issue_key_parent_rng TYPE string_range.
     CLASS-DATA transport_instruction_fields TYPE jira_field_list.
+    CLASS-DATA tcode_fields TYPE jira_field_list.
+    CLASS-DATA tcode_ticket_cache TYPE tcode_ticket_set.
 
     CLASS-METHODS read_jira_definitions RAISING ycx_addict_table_content.
 
     METHODS create_http_client
       IMPORTING !url               TYPE clike
       RETURNING VALUE(http_client) TYPE REF TO if_http_client
+      RAISING   ycx_ticksys_ticketing_system.
+
+    METHODS search_issues
+      IMPORTING !jql           TYPE string
+                !max_results   TYPE i OPTIONAL
+      RETURNING VALUE(results) TYPE /ui5/cl_json_parser=>t_entry_map
       RAISING   ycx_ticksys_ticketing_system.
 
     METHODS get_jira_issue
@@ -117,6 +135,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         ( sign   = ycl_addict_toolkit=>sign-include
           option = ycl_addict_toolkit=>option-cp
           low    = '/issues/*/fields/issuelinks/*/outwardIssue' ) ).
+
+    ycl_ticksys_jira=>issue_key_parent_rng = VALUE #(
+        ( sign   = ycl_addict_toolkit=>sign-include
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*' )
+        ( sign   = ycl_addict_toolkit=>sign-exclude
+          option = ycl_addict_toolkit=>option-cp
+          low    = '/issues/*/*' ) ).
   ENDMETHOD.
 
 
@@ -172,6 +198,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     SELECT jira_field FROM ytticksys_jitif              "#EC CI_NOWHERE
            INTO TABLE @ycl_ticksys_jira=>transport_instruction_fields.
+
+    SELECT jira_field FROM ytticksys_jitcf              "#EC CI_NOWHERE
+           INTO TABLE @ycl_ticksys_jira=>tcode_fields.
   ENDMETHOD.
 
 
@@ -202,6 +231,107 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD search_issues.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Runs a JQL search over Jira API
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    DATA(url)   = |{ me->jira_definitions-url }/rest/api/2/search|.
+    DATA(http_client) = create_http_client( url ).
+
+    http_client->request->set_method( if_http_request=>co_request_method_get ).
+
+    http_client->request->set_form_field(
+        name  = 'jql'
+        value = jql ).
+
+    " Full list if needed:
+    " 'names,renderedFields,schema,transitions,operations,editmeta,changelog'
+    http_client->request->set_form_field(
+        name  = 'expand'
+        value = '' ).
+
+    IF max_results IS NOT INITIAL.
+      http_client->request->set_form_field(
+          name  = 'maxResults'
+          value = CONV #( max_results ) ).
+    ENDIF.
+
+    http_client->send(
+      EXCEPTIONS http_communication_failure = 1
+                 http_invalid_state         = 2
+                 http_processing_failed     = 3
+                 http_invalid_timeout       = 4
+                 OTHERS                     = 5 ).
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING
+          textid   = ycx_ticksys_ticketing_system=>http_request_error
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
+    ENDIF.
+
+    http_client->receive(
+      EXCEPTIONS http_communication_failure = 1
+                 http_invalid_state         = 2
+                 http_processing_failed     = 3
+                 OTHERS                     = 4 ).
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING
+          textid   = ycx_ticksys_ticketing_system=>http_response_error
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
+    ENDIF.
+
+    http_client->response->get_status( IMPORTING code = DATA(rc) ).
+    DATA(response) = http_client->response->get_data( ).
+    http_client->close( ).
+
+    IF rc <> me->http_return-ok.
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING
+          textid   = ycx_ticksys_ticketing_system=>http_responded_with_error
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
+    ENDIF.
+
+    " Parse """""""""""""""""""""""""""""""""""""""""""""""""""""""
+    DATA(len) = 0.
+    DATA(bin) = VALUE bin_list( ).
+
+    CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
+      EXPORTING
+        buffer        = response
+      IMPORTING
+        output_length = len
+      TABLES
+        binary_tab    = bin.
+
+    DATA(json_response) = CONV string( space ).
+
+    CALL FUNCTION 'SCMS_BINARY_TO_STRING'
+      EXPORTING
+        input_length = len
+      IMPORTING
+        text_buffer  = json_response
+      TABLES
+        binary_tab   = bin
+      EXCEPTIONS
+        failed       = 1
+        OTHERS       = 2.
+
+    IF sy-subrc <> 0.
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING
+          textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
+          ticsy_id = ycl_ticksys_jira=>ticsy_id.
+    ENDIF.
+
+    DATA(parser) = NEW /ui5/cl_json_parser( ).
+    parser->parse( json_response ).
+    results = parser->m_entries.
+  ENDMETHOD.
+
+
   METHOD get_jira_issue.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Reads the given Jira issue from the server
@@ -219,135 +349,47 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           ticket_id = ticket_id
           header    = VALUE #( ticket_id = ticket_id ) ).
 
-      " HTTP """"""""""""""""""""""""""""""""""""""""""""""""""""""""
-      DATA(url)   = |{ me->jira_definitions-url }/rest/api/2/search|.
-      DATA(http_client) = create_http_client( url ).
-
-      http_client->request->set_method( if_http_request=>co_request_method_get ).
-
-      http_client->request->set_form_field(
-          name  = 'jql'
-          value = |issuekey={ ticket_id }| ).
-
-      " Full list if needed:
-      " 'names,renderedFields,schema,transitions,operations,editmeta,changelog'
-      http_client->request->set_form_field(
-          name  = 'expand'
-          value = '' ).
-
-      http_client->request->set_form_field(
-          name  = 'maxResults'
-          value = '1' ).
-
-      http_client->send(
-        EXCEPTIONS http_communication_failure = 1
-                   http_invalid_state         = 2
-                   http_processing_failed     = 3
-                   http_invalid_timeout       = 4
-                   OTHERS                     = 5 ).
-
-      IF sy-subrc <> 0.
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            textid   = ycx_ticksys_ticketing_system=>http_request_error
-            ticsy_id = ycl_ticksys_jira=>ticsy_id.
-      ENDIF.
-
-      http_client->receive(
-        EXCEPTIONS http_communication_failure = 1
-                   http_invalid_state         = 2
-                   http_processing_failed     = 3
-                   OTHERS                     = 4 ).
-
-      IF sy-subrc <> 0.
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            textid   = ycx_ticksys_ticketing_system=>http_response_error
-            ticsy_id = ycl_ticksys_jira=>ticsy_id.
-      ENDIF.
-
-      http_client->response->get_status( IMPORTING code = DATA(rc) ).
-      DATA(response) = http_client->response->get_data( ).
-      http_client->close( ).
-
-      IF rc <> me->http_return-ok.
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            textid   = ycx_ticksys_ticketing_system=>http_responded_with_error
-            ticsy_id = ycl_ticksys_jira=>ticsy_id.
-      ENDIF.
-
-      " Parse """""""""""""""""""""""""""""""""""""""""""""""""""""""
-      DATA(len) = 0.
-      DATA(bin) = VALUE bin_list( ).
-
-      CALL FUNCTION 'SCMS_XSTRING_TO_BINARY'
-        EXPORTING
-          buffer        = response
-        IMPORTING
-          output_length = len
-        TABLES
-          binary_tab    = bin.
-
-      DATA(json_response) = CONV string( space ).
-
-      CALL FUNCTION 'SCMS_BINARY_TO_STRING'
-        EXPORTING
-          input_length = len
-        IMPORTING
-          text_buffer  = json_response
-        TABLES
-          binary_tab   = bin
-        EXCEPTIONS
-          failed       = 1
-          OTHERS       = 2.
-
-      IF sy-subrc <> 0.
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
-            ticsy_id = ycl_ticksys_jira=>ticsy_id.
-      ENDIF.
-
-      DATA(parser) = NEW /ui5/cl_json_parser( ).
-      parser->parse( json_response ).
+      " Search """"""""""""""""""""""""""""""""""""""""""""""""""""""
+      DATA(results) = search_issues(
+          jql         = |issuekey={ ticket_id }|
+          max_results = 1 ).
 
       " Read values """""""""""""""""""""""""""""""""""""""""""""""""
-      cache-header-status_id = VALUE #( parser->m_entries[
+      cache-header-status_id = VALUE #( results[
           parent = '/issues/1/fields/status'
           name   = 'id' ]-value OPTIONAL ).
 
-      cache-header-status_text = VALUE #( parser->m_entries[
+      cache-header-status_text = VALUE #( results[
           parent = '/issues/1/fields/status'
           name   = 'name' ]-value OPTIONAL ).
 
       cache-header-completed = xsdbool(
-          VALUE string( parser->m_entries[
+          VALUE string( results[
                         parent = '/issues/1/fields/status/statusCategory'
                         name   = 'key' ]-value OPTIONAL
                       ) = 'done' ).
 
-      cache-header-parent_ticket_id = VALUE #( parser->m_entries[
+      cache-header-parent_ticket_id = VALUE #( results[
           parent = '/issues/1/fields/parent'
           name   = 'key' ]-value OPTIONAL ).
 
-      cache-header-type_id = VALUE #( parser->m_entries[
+      cache-header-type_id = VALUE #( results[
           parent = '/issues/1/fields/issuetype'
           name   = 'id' ]-value OPTIONAL ).
 
-      cache-header-type_text = VALUE #( parser->m_entries[
+      cache-header-type_text = VALUE #( results[
           parent = '/issues/1/fields/issuetype'
           name   = 'name' ]-value OPTIONAL ).
 
       cache-sub_tickets = VALUE #(                      "#EC CI_SORTSEQ
-          FOR GROUPS _value OF _entry IN parser->m_entries
+          FOR GROUPS _value OF _entry IN results
           WHERE ( parent IN me->subtask_parent_rng AND
                   name = 'key' )
           GROUP BY _entry-value
           ( CONV #( _value ) ) ).
 
       cache-linked_tickets = VALUE #(                   "#EC CI_SORTSEQ
-          FOR GROUPS _value OF _entry IN parser->m_entries
+          FOR GROUPS _value OF _entry IN results
           WHERE ( parent IN me->issue_link_parent_rng AND
                   name = 'key' )
           GROUP BY _entry-value
@@ -358,7 +400,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
               GROUP BY ( jira_field = _jsaf-jira_field )
               ASSIGNING FIELD-SYMBOL(<jsaf>).
 
-        ASSIGN parser->m_entries[
+        ASSIGN results[
                  parent = |/issues/1/fields/{ <jsaf>-jira_field }|
                  name   = 'name'
                ] TO FIELD-SYMBOL(<custom_field>).
@@ -372,7 +414,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       ENDLOOP.
 
       LOOP AT me->transport_instruction_fields ASSIGNING FIELD-SYMBOL(<tif>).
-        ASSIGN parser->m_entries[
+        ASSIGN results[
                  parent = |/issues/1/fields|
                  name   = <tif>
                ] TO FIELD-SYMBOL(<tif_value>).
@@ -384,6 +426,23 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             |{ COND #( WHEN cache-transport_instructions IS NOT INITIAL THEN ` `) }| &&
             |{ <tif_value>-value }|.
       ENDLOOP.
+
+      LOOP AT me->tcode_fields ASSIGNING FIELD-SYMBOL(<tcf>).
+        APPEND LINES OF VALUE yif_addict_ticketing_system=>tcode_list(
+                 FOR _entry IN results
+                 WHERE ( parent = |/issues/1/fields/{ <tcf> }| )
+                 ( CONV #( _entry-value ) )
+               ) TO cache-tcodes.
+      ENDLOOP.
+
+      SORT cache-linked_tickets.
+      DELETE ADJACENT DUPLICATES FROM cache-linked_tickets.
+
+      SORT cache-sub_tickets.
+      DELETE ADJACENT DUPLICATES FROM cache-sub_tickets.
+
+      SORT cache-tcodes.
+      DELETE ADJACENT DUPLICATES FROM cache-tcodes.
 
       " Flush """""""""""""""""""""""""""""""""""""""""""""""""""""""
       INSERT cache INTO TABLE me->jira_cache ASSIGNING <cache>.
@@ -484,6 +543,77 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
         tickets = get_jira_issue( ticket_id )-linked_tickets.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_related_tcodes.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Gets the tcodes related to the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        tcodes = get_jira_issue( ticket_id )-tcodes.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~get_tickets_related_to_tcodes.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns a list of tickets related to the given TCodes
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        LOOP AT tcodes ASSIGNING FIELD-SYMBOL(<tcode>).
+          ASSIGN me->tcode_ticket_cache[
+                   KEY primary_key COMPONENTS
+                   tcode = <tcode>
+                 ] TO FIELD-SYMBOL(<cache>).
+
+          IF sy-subrc <> 0.
+            DATA(new_cache) = VALUE tcode_ticket_dict( tcode = <tcode> ).
+
+            LOOP AT me->tcode_fields ASSIGNING FIELD-SYMBOL(<tcode_field>).
+              DATA(jql_field) = <tcode_field>.
+
+              IF jql_field CS 'customfield_'.
+                DATA(split1) = ||.
+                DATA(split2) = ||.
+                SPLIT jql_field AT '_' INTO split1 split2.
+                jql_field = |cf[{ split2 }]|.
+              ENDIF.
+
+              DATA(results) = search_issues( |{ jql_field }={ <tcode> }| ).
+            ENDLOOP.
+
+            APPEND LINES OF VALUE yif_addict_ticketing_system=>ticket_id_list(
+                     FOR GROUPS _grp OF _result IN results
+                     WHERE ( parent IN me->issue_key_parent_rng AND
+                             name = 'key' )
+                     GROUP BY _result-value
+                     ( CONV #( _grp ) )
+                   ) TO new_cache-tickets.
+
+            INSERT new_cache INTO TABLE me->tcode_ticket_cache ASSIGNING <cache>.
+          ENDIF.
+
+          APPEND LINES OF <cache>-tickets TO tickets.
+        ENDLOOP.
+
+        SORT tickets.
+        DELETE ADJACENT DUPLICATES FROM tickets.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
