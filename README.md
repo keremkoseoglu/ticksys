@@ -98,6 +98,15 @@ If you have custom fields for request transportation instructions, you need to r
   </tr>
 </table>
 
+If you have custom fields containing related SAP TCode values, you need to register their custom fields into **YTTICKSYS_JITCF** . It is assumed that this custom field can contain multiple values.
+
+<table>
+  <tr>
+    <td><b>JIRA_FIELD</b></td>
+    <td>(Field name containing instructions. Sample: customfield_10006)</td>
+  </tr>
+</table>
+
 Check the menu **YTICKSYS** for any further configuration which may have been missed in this document.
 
 ## Implementing a new ticketing system
