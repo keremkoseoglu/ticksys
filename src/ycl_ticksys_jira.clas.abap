@@ -238,6 +238,13 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     CHECK statuses IS NOT INITIAL.
 
     TRY.
+        IF me->defs->status_orders IS INITIAL.
+          RAISE EXCEPTION TYPE ycx_addict_table_content
+            EXPORTING
+              textid  = ycx_addict_table_content=>table_empty
+              tabname = ycl_ticksys_jira_def=>table-status_order.
+        ENDIF.
+
         DATA(unique_statuses) = statuses.
         SORT unique_statuses.
         DELETE ADJACENT DUPLICATES FROM unique_statuses.

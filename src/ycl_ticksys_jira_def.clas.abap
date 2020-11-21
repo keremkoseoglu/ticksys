@@ -20,6 +20,7 @@ CLASS ycl_ticksys_jira_def DEFINITION
     CONSTANTS: BEGIN OF table,
                  jira_def         TYPE tabname VALUE 'YTTICKSYS_JIDEF',
                  jira_transitions TYPE tabname VALUE 'YTTICKSYS_JITRA',
+                 status_order     type tabname value 'YTTICKSYS_JISTO',
                END OF table.
 
     DATA definitions TYPE ytticksys_jidef READ-ONLY.
