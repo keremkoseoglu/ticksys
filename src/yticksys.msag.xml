@@ -23,6 +23,24 @@
     <T100>
      <SPRSL>T</SPRSL>
      <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>002</MSGNR>
+     <TEXT>&amp;1 okunamadı</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>003</MSGNR>
+     <TEXT>&amp;1 sisteminden beklenmedik HTTP statüsü döndü: &amp;2</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>004</MSGNR>
+     <TEXT>&amp;1 geçerli bir statü değil</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>011</MSGNR>
      <TEXT>Ticketing sistemi hatası</TEXT>
     </T100>

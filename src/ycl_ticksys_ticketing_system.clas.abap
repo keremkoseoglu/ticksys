@@ -16,6 +16,10 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
       RETURNING VALUE(obj) TYPE REF TO ycl_ticksys_ticketing_system
       RAISING   ycx_addict_table_content.
 
+    METHODS create_log
+      RETURNING VALUE(log) TYPE REF TO ycl_simbal
+      RAISING   ycx_addict_table_content.
+
   PROTECTED SECTION.
   PRIVATE SECTION.
     TYPES: BEGIN OF multiton_dict,
@@ -26,6 +30,11 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
 
            multiton_set TYPE HASHED TABLE OF multiton_dict
                         WITH UNIQUE KEY primary_key COMPONENTS key.
+
+    CONSTANTS: BEGIN OF field,
+                 bal_object    TYPE fieldname VALUE 'BAL_OBJECT',
+                 bal_subobject TYPE fieldname VALUE 'BAL_SUBOBJECT',
+               END OF field.
 
     CONSTANTS: BEGIN OF table,
                  def TYPE tabname VALUE 'YTTICKSYS_TICSY',
@@ -41,7 +50,72 @@ ENDCLASS.
 
 
 CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
+  METHOD get_instance.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Multiton factory
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    ASSIGN multitons[ KEY primary_key COMPONENTS key = key
+                    ] TO FIELD-SYMBOL(<multiton>).
+    IF sy-subrc <> 0.
+      DATA(multiton) = VALUE multiton_dict( key = key ).
+
+      TRY.
+          multiton-obj = NEW #( multiton-key ).
+        CATCH ycx_addict_table_content INTO multiton-cx ##NO_HANDLER.
+      ENDTRY.
+
+      INSERT multiton INTO TABLE multitons ASSIGNING <multiton>.
+    ENDIF.
+
+    IF <multiton>-cx IS NOT INITIAL.
+      RAISE EXCEPTION <multiton>-cx.
+    ENDIF.
+
+    obj = <multiton>-obj.
+  ENDMETHOD.
+
+
+  METHOD create_log.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Creates & returns a new log object
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    IF me->def-bal_object IS INITIAL.
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING
+          textid    = ycx_addict_table_content=>entry_field_empty
+          tabname   = me->table-def
+          objectid  = CONV #( me->def-ticsy_id )
+          fieldname = me->field-bal_object.
+    ENDIF.
+
+    IF me->def-bal_subobject IS INITIAL.
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING
+          textid    = ycx_addict_table_content=>entry_field_empty
+          tabname   = me->table-def
+          objectid  = CONV #( me->def-ticsy_id )
+          fieldname = me->field-bal_subobject.
+    ENDIF.
+
+    TRY.
+        log = NEW ycl_simbal( object    = me->def-bal_object
+                              subobject = me->def-bal_subobject ).
+
+      CATCH cx_root INTO DATA(simbal_error).
+        RAISE EXCEPTION TYPE ycx_addict_table_content
+          EXPORTING
+            textid   = ycx_addict_table_content=>invalid_entry
+            previous = simbal_error
+            tabname  = me->table-def
+            objectid = CONV #( me->def-ticsy_id ).
+    ENDTRY.
+  ENDMETHOD.
+
+
   METHOD constructor.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Called on object creation
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     DATA obj TYPE REF TO object.
 
     SELECT SINGLE * FROM ytticksys_ticsy
@@ -75,27 +149,5 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
             tabname  = table-def
             objectid = |{ key-ticsy_id }|.
     ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD get_instance.
-    ASSIGN multitons[ KEY primary_key COMPONENTS key = key
-                    ] TO FIELD-SYMBOL(<multiton>).
-    IF sy-subrc <> 0.
-      DATA(multiton) = VALUE multiton_dict( key = key ).
-
-      TRY.
-          multiton-obj = NEW #( multiton-key ).
-        CATCH ycx_addict_table_content INTO multiton-cx ##NO_HANDLER.
-      ENDTRY.
-
-      INSERT multiton INTO TABLE multitons ASSIGNING <multiton>.
-    ENDIF.
-
-    IF <multiton>-cx IS NOT INITIAL.
-      RAISE EXCEPTION <multiton>-cx.
-    ENDIF.
-
-    obj = <multiton>-obj.
   ENDMETHOD.
 ENDCLASS.

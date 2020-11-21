@@ -68,17 +68,28 @@ CLASS ycx_ticksys_ticketing_system DEFINITION
         attr3 TYPE scx_attrname VALUE 'STATUS_ID',
         attr4 TYPE scx_attrname VALUE '',
       END OF status_update_error .
+    CONSTANTS:
+      BEGIN OF unexpected_http_status,
+        msgid TYPE symsgid VALUE 'YTICKSYS',
+        msgno TYPE symsgno VALUE '003',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE 'HTTP_STATUS_CODE',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF unexpected_http_status .
     DATA ticsy_id TYPE yd_addict_ticsy_id .
     DATA ticket_id TYPE yd_addict_ticket_id .
     DATA status_id TYPE yd_addict_ticket_status_id .
+    DATA http_status_code TYPE i .
 
     METHODS constructor
       IMPORTING
-        !textid    LIKE if_t100_message=>t100key OPTIONAL
-        !previous  LIKE previous OPTIONAL
-        !ticsy_id  TYPE yd_ticksys_ticsy_id OPTIONAL
-        !ticket_id TYPE yd_addict_ticket_id OPTIONAL
-        !status_id TYPE yd_addict_ticket_status_id OPTIONAL.
+        !textid           LIKE if_t100_message=>t100key OPTIONAL
+        !previous         LIKE previous OPTIONAL
+        !ticsy_id         TYPE yd_ticksys_ticsy_id OPTIONAL
+        !ticket_id        TYPE yd_addict_ticket_id OPTIONAL
+        !status_id        TYPE yd_addict_ticket_status_id OPTIONAL
+        !http_status_code TYPE i OPTIONAL .
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
@@ -96,6 +107,7 @@ CLASS ycx_ticksys_ticketing_system IMPLEMENTATION.
     me->ticsy_id = ticsy_id .
     me->ticket_id = ticket_id.
     me->status_id = status_id.
+    me->http_status_code = http_status_code.
 
     CLEAR me->textid.
     IF textid IS INITIAL.

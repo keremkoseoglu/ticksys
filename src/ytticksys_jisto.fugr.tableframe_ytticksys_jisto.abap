@@ -1,9 +1,9 @@
 *---------------------------------------------------------------------*
-*    program for:   TABLEFRAME_YTTICKSYS_TICSY
-*   generation date: 20.11.2020 at 10:19:24
+*    program for:   TABLEFRAME_YTTICKSYS_JISTO
+*   generation date: 21.11.2020 at 10:41:08
 *   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
-FUNCTION TABLEFRAME_YTTICKSYS_TICSY    .
+FUNCTION TABLEFRAME_YTTICKSYS_JISTO    .
 
   PERFORM TABLEFRAME TABLES X_HEADER X_NAMTAB DBA_SELLIST DPL_SELLIST
                             EXCL_CUA_FUNCT

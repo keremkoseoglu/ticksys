@@ -1,8 +1,7 @@
 *---------------------------------------------------------------------*
-*    view related FORM routines
-*   generation date: 20.11.2020 at 10:19:24
+*    view related PAI modules
+*   generation date: 21.11.2020 at 10:41:08
 *   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 
-* base table related FORM-routines.............
-INCLUDE LSVIMFTX .
+INCLUDE LSVIMITX . "base table related PAI modules
