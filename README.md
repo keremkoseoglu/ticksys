@@ -107,6 +107,19 @@ If you have custom fields containing related SAP TCode values, you need to regis
   </tr>
 </table>
 
+If you will be using **GET_EARLIEST_STATUS**, you need to fill **YTTICKSYS_JISTO** with the correct order of Jira statuses. This table is text based because ID's may change with each new definition, but status descriptions are typically stable.
+
+<table>
+  <tr>
+    <td><b>JSTATUS_TEXT_PATTERN</b></td>
+    <td>(Status text pattern. Sample: DUZELTILIYOR*)</td>
+  </tr>
+  <tr>
+    <td><b>STATUS_ORDER</b></td>
+    <td>(Order of status. Sample: 9)</td>
+  </tr>
+</table>
+
 Check the menu **YTICKSYS** for any further configuration which may have been missed in this document.
 
 ## Implementing a new ticketing system
