@@ -8,8 +8,14 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
              ticsy_id TYPE yd_ticksys_ticsy_id,
            END OF key_dict.
 
+    TYPES ticketing_system_set TYPE HASHED TABLE OF ytticksys_ticsy
+                               WITH UNIQUE KEY primary_key COMPONENTS ticsy_id.
+
+    CLASS-DATA ticketing_systems TYPE ticketing_system_set READ-ONLY.
     DATA def TYPE ytticksys_ticsy READ-ONLY.
     DATA implementation TYPE REF TO yif_addict_ticketing_system READ-ONLY.
+
+    CLASS-METHODS class_constructor.
 
     CLASS-METHODS get_instance
       IMPORTING !key       TYPE key_dict
@@ -50,6 +56,13 @@ ENDCLASS.
 
 
 CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
+  METHOD class_constructor.
+    SELECT * FROM ytticksys_ticsy                       "#EC CI_NOWHERE
+             INTO CORRESPONDING FIELDS OF TABLE
+             ycl_ticksys_ticketing_system=>ticketing_systems.
+  ENDMETHOD.
+
+
   METHOD get_instance.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Multiton factory
@@ -118,17 +131,17 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     DATA obj TYPE REF TO object.
 
-    SELECT SINGLE * FROM ytticksys_ticsy
-           WHERE ticsy_id = @key-ticsy_id
-           INTO CORRESPONDING FIELDS OF @me->def.
-
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_addict_table_content
-        EXPORTING
-          textid   = ycx_addict_table_content=>no_entry_for_objectid
-          tabname  = table-def
-          objectid = |{ key-ticsy_id }|.
-    ENDIF.
+    TRY.
+        me->def = me->ticketing_systems[ KEY primary_key COMPONENTS
+                                         ticsy_id = key-ticsy_id ].
+      CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
+        RAISE EXCEPTION TYPE ycx_addict_table_content
+          EXPORTING
+            textid   = ycx_addict_table_content=>no_entry_for_objectid
+            previous = itab_error
+            tabname  = table-def
+            objectid = |{ key-ticsy_id }|.
+    ENDTRY.
 
     IF me->def-ticsy_imp_class IS INITIAL.
       RAISE EXCEPTION TYPE ycx_addict_table_content
