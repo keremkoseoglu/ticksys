@@ -68,6 +68,8 @@ CLASS ycl_ticksys_jira_reader DEFINITION
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
+    constants json_null type text4 value 'null'.
+
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
                END OF http_return.
@@ -180,13 +182,13 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     ENDIF.
 
     ASSIGN me->issue_cache[ KEY primary_key COMPONENTS
-                            ticket_id = ticket_id
-                          ] TO FIELD-SYMBOL(<cache>).
+                            ticket_id = ticket_id ]
+           TO FIELD-SYMBOL(<cache>).
+
     IF sy-subrc <> 0.
       " Preparation """""""""""""""""""""""""""""""""""""""""""""""""
-      DATA(cache) = VALUE issue_dict(
-                        ticket_id = ticket_id
-                        header    = VALUE #( ticket_id = ticket_id ) ).
+      DATA(cache) = VALUE issue_dict( ticket_id = ticket_id
+                                      header    = VALUE #( ticket_id = ticket_id ) ).
 
       " Search """"""""""""""""""""""""""""""""""""""""""""""""""""""
       DATA(results) = search_issues( jql         = |issuekey={ ticket_id }|
@@ -208,7 +210,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
       cache-header-completed = xsdbool( VALUE string( results[ parent = '/issues/1/fields/status/statusCategory'
                                                                name   = 'key'
                                                              ]-value OPTIONAL
-                                                    ) = 'done' ).
+                                                     ) = 'done' ).
 
       cache-header-parent_ticket_id = VALUE #( results[ parent = '/issues/1/fields/parent'
                                                         name   = 'key'
@@ -240,36 +242,40 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
               ASSIGNING FIELD-SYMBOL(<jsaf>).
 
         ASSIGN results[ parent = |/issues/1/fields/{ <jsaf>-jira_field }|
-                        name   = 'name'
-                      ] TO FIELD-SYMBOL(<custom_field>).
+                        name   = 'name' ]
+               TO FIELD-SYMBOL(<custom_field>).
 
-        CHECK sy-subrc = 0.
+        CHECK sy-subrc = 0 and
+              <custom_Field>-value <> me->json_null.
 
         INSERT VALUE custom_field_value_dict(
-                 jira_field = <jsaf>-jira_field
-                 value      = <custom_field>-value
-               ) INTO TABLE cache-custom_fields.
+                       jira_field = <jsaf>-jira_field
+                       value      = <custom_field>-value )
+               INTO TABLE cache-custom_fields.
       ENDLOOP.
 
       LOOP AT me->defs->transport_instruction_fields ASSIGNING FIELD-SYMBOL(<tif>).
         ASSIGN results[ parent = |/issues/1/fields|
-                        name   = <tif>
-                      ] TO FIELD-SYMBOL(<tif_value>).
+                        name   = <tif> ]
+               TO FIELD-SYMBOL(<tif_value>).
 
-        CHECK sy-subrc = 0 AND <tif_value>-value IS NOT INITIAL.
+        CHECK sy-subrc = 0 AND
+              <tif_value>-value IS NOT INITIAL and
+              <tif_value>-value <> me->json_null.
 
         cache-transport_instructions =
-            |{ cache-transport_instructions }| &&
-            |{ COND #( WHEN cache-transport_instructions IS NOT INITIAL THEN ` `) }| &&
-            |{ <tif_value>-value }|.
+          |{ cache-transport_instructions }| &&
+          |{ COND #( WHEN cache-transport_instructions IS NOT INITIAL THEN ` `) }| &&
+          |{ <tif_value>-value }|.
       ENDLOOP.
 
       LOOP AT me->defs->tcode_fields ASSIGNING FIELD-SYMBOL(<tcf>).
         APPEND LINES OF VALUE yif_addict_ticketing_system=>tcode_list(
-                 FOR _entry IN results
-                 WHERE ( parent = |/issues/1/fields/{ <tcf> }| )
-                 ( CONV #( _entry-value ) )
-               ) TO cache-tcodes.
+                                FOR _entry IN results
+                                WHERE ( parent = |/issues/1/fields/{ <tcf> }| and
+                                        value <> me->json_null )
+                                ( CONV #( _entry-value ) ) )
+               TO cache-tcodes.
       ENDLOOP.
 
       SORT cache-linked_tickets.
