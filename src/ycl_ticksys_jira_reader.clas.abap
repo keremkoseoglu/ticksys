@@ -301,37 +301,37 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     me->defs = ycl_ticksys_jira_def=>get_instance( ).
 
-    me->subtask_parent_rng = VALUE #(
-        ( sign   = ycl_addict_toolkit=>sign-include
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*/fields/subtasks/*' )
-        ( sign   = ycl_addict_toolkit=>sign-exclude
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*/fields/subtasks/*/*' ) ).
+    me->subtask_parent_rng =
+      VALUE #( ( sign   = ycl_addict_toolkit=>sign-include
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*/fields/subtasks/*' )
+               ( sign   = ycl_addict_toolkit=>sign-exclude
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*/fields/subtasks/*/*' ) ).
 
-    me->issue_link_parent_rng = VALUE #(
-        ( sign   = ycl_addict_toolkit=>sign-include
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*/fields/issuelinks/*/inwardIssue' )
-        ( sign   = ycl_addict_toolkit=>sign-include
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*/fields/issuelinks/*/outwardIssue' ) ).
+    me->issue_link_parent_rng =
+      VALUE #( ( sign   = ycl_addict_toolkit=>sign-include
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*/fields/issuelinks/*/inwardIssue' )
+               ( sign   = ycl_addict_toolkit=>sign-include
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*/fields/issuelinks/*/outwardIssue' ) ).
 
-    me->issue_key_parent_rng = VALUE #(
-        ( sign   = ycl_addict_toolkit=>sign-include
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*' )
-        ( sign   = ycl_addict_toolkit=>sign-exclude
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/issues/*/*' ) ).
+    me->issue_key_parent_rng =
+      VALUE #( ( sign   = ycl_addict_toolkit=>sign-include
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*' )
+               ( sign   = ycl_addict_toolkit=>sign-exclude
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/issues/*/*' ) ).
 
-    me->status_parent_rng = VALUE #(
-        ( sign   = ycl_addict_toolkit=>sign-include
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/*' )
-        ( sign   = ycl_addict_toolkit=>sign-exclude
-          option = ycl_addict_toolkit=>option-cp
-          low    = '/*/*' ) ).
+    me->status_parent_rng =
+      VALUE #( ( sign   = ycl_addict_toolkit=>sign-include
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/*' )
+               ( sign   = ycl_addict_toolkit=>sign-exclude
+                 option = ycl_addict_toolkit=>option-cp
+                 low    = '/*/*' ) ).
   ENDMETHOD.
 
 

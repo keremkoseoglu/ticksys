@@ -9,21 +9,12 @@ CLASS ycl_ticksys_jira DEFINITION
     CLASS-METHODS class_constructor.
   PROTECTED SECTION.
   PRIVATE SECTION.
-    TYPES: BEGIN OF tcode_ticket_dict,
-             tcode   TYPE tcode,
-             tickets TYPE yif_addict_ticketing_system=>ticket_id_list,
-           END OF tcode_ticket_dict,
-
-           tcode_ticket_set TYPE HASHED TABLE OF tcode_ticket_dict
-           WITH UNIQUE KEY primary_key COMPONENTS tcode.
-
     CONSTANTS: BEGIN OF status_code,
                  ok TYPE char3 VALUE '204',
                END OF status_code.
 
     CLASS-DATA defs TYPE REF TO ycl_ticksys_jira_def.
     CLASS-DATA reader TYPE REF TO ycl_ticksys_jira_reader.
-    CLASS-DATA tcode_ticket_cache TYPE tcode_ticket_set.
 
     CLASS-METHODS get_ticket_url
       IMPORTING !ticket_id TYPE yd_addict_ticket_id
@@ -42,7 +33,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Called upon initial access
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        defs = ycl_ticksys_jira_def=>get_instance( ).
+        defs   = ycl_ticksys_jira_def=>get_instance( ).
         reader = ycl_ticksys_jira_reader=>get_instance( ).
       CATCH cx_root INTO DATA(diaper).
         MESSAGE diaper TYPE ycl_simbal=>msgty-error.
@@ -63,16 +54,16 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Returns assignee fields for the given status
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list(
-             FOR _jsaf IN me->defs->status_assignee_fields
-             WHERE ( status_id = status_id )
-             ( _jsaf-jira_field )
-           ) TO fields.
+                            FOR _jsaf IN me->defs->status_assignee_fields
+                            WHERE ( status_id = status_id )
+                            ( _jsaf-jira_field ) )
+           TO fields.
 
     APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list(
-             FOR _jsaf IN me->defs->status_assignee_fields
-             WHERE ( status_id = space )
-             ( _jsaf-jira_field )
-           ) TO fields.
+                            FOR _jsaf IN me->defs->status_assignee_fields
+                            WHERE ( status_id = space )
+                            ( _jsaf-jira_field ) )
+           TO fields.
   ENDMETHOD.
 
 
@@ -182,50 +173,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Returns a list of tickets related to the given TCodes
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        LOOP AT tcodes ASSIGNING FIELD-SYMBOL(<tcode>).
-          ASSIGN me->tcode_ticket_cache[
-                   KEY primary_key COMPONENTS
-                   tcode = <tcode>
-                 ] TO FIELD-SYMBOL(<cache>).
+        tickets = ycl_ticksys_jira_gtrttc=>get_instance( )->execute( tcodes ).
 
-          IF sy-subrc <> 0.
-            DATA(new_cache) = VALUE tcode_ticket_dict( tcode = <tcode> ).
-
-            LOOP AT me->defs->tcode_fields ASSIGNING FIELD-SYMBOL(<tcode_field>).
-              DATA(jql_field) = <tcode_field>.
-
-              IF jql_field CS 'customfield_'.
-                DATA(split1) = ||.
-                DATA(split2) = ||.
-                SPLIT jql_field AT '_' INTO split1 split2.
-                jql_field = |cf[{ split2 }]|.
-              ENDIF.
-
-              DATA(results) = me->reader->search_issues( |{ jql_field }={ <tcode> }| ).
-            ENDLOOP.
-
-            APPEND LINES OF VALUE yif_addict_ticketing_system=>ticket_id_list(
-                     FOR GROUPS _grp OF _result IN results
-                     WHERE ( parent IN me->reader->issue_key_parent_rng AND
-                             name = 'key' )
-                     GROUP BY _result-value
-                     ( CONV #( _grp ) )
-                   ) TO new_cache-tickets.
-
-            INSERT new_cache INTO TABLE me->tcode_ticket_cache ASSIGNING <cache>.
-          ENDIF.
-
-          APPEND LINES OF <cache>-tickets TO tickets.
-        ENDLOOP.
-
-        SORT tickets.
-        DELETE ADJACENT DUPLICATES FROM tickets.
-
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
+      CATCH ycx_addict_ticketing_system INTO DATA(system_error).
+        RAISE EXCEPTION system_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        RAISE EXCEPTION TYPE ycx_addict_ticketing_system
           EXPORTING
+            textid   = ycx_addict_ticketing_system=>ycx_addict_ticketing_system
             previous = diaper.
     ENDTRY.
   ENDMETHOD.
@@ -261,8 +216,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           ENDIF.
 
           ASSIGN status_master[ KEY primary_key COMPONENTS
-                                status_id = <status>
-                              ] TO FIELD-SYMBOL(<status_master>).
+                                status_id = <status> ]
+                 TO FIELD-SYMBOL(<status_master>).
 
           IF sy-subrc <> 0.
             RAISE EXCEPTION TYPE ycx_ticksys_ticket_status
@@ -273,7 +228,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
           LOOP AT me->defs->status_orders ASSIGNING FIELD-SYMBOL(<status_order>).
             CHECK <status_master>-status_text CP <status_order>-status_text_pattern AND
-                  <status_order>-status_order < earliest_status_order.
+                  <status_order>-status_order <  earliest_status_order.
 
             earliest_status_id = <status>.
             earliest_status_order = <status_order>-status_order.
@@ -296,6 +251,51 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD yif_addict_ticketing_system~get_tickets_with_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the tickets having the passed statuses
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    CHECK statuses IS NOT INITIAL.
+
+    TRY.
+        DATA(status_csv) =
+          REDUCE string( INIT _csv TYPE string
+                         FOR _status IN statuses
+                         NEXT _csv = |{ _csv }| &&
+                                     |{ COND #( WHEN _csv IS NOT INITIAL THEN ', ' ) }| &&
+                                     |{ _status }| ).
+
+        DATA(jql) = |status in ({ status_csv })|.
+
+        DATA(issues) = me->reader->search_issues( jql ).
+        DATA(issues_copy) = issues.
+
+        LOOP AT issues ASSIGNING FIELD-SYMBOL(<issue>)
+                WHERE parent IN me->reader->issue_key_parent_rng AND
+                      name   =  'key'.
+
+          DATA(entry) =
+            VALUE yif_addict_ticketing_system=>ticket_status_dict(
+                    ticket_id = <issue>-value
+                    status_id = VALUE #( issues_copy[ type    = <issue>-type
+                                                      subtype = <issue>-subtype
+                                                      parent  = |{ <issue>-parent }/fields/status|
+                                                      name    = 'id'
+                                                    ]-value OPTIONAL ) ).
+
+          APPEND entry TO tickets.
+        ENDLOOP.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
+    ENDTRY.
+  ENDMETHOD.
+
+
   METHOD yif_addict_ticketing_system~set_ticket_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Sets the status of the ticket
@@ -307,14 +307,15 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
         " Create body """""""""""""""""""""""""""""""""""""""""""""""
         DATA(current_status) = me->reader->get_jira_issue(
-            ticket_id    = ticket_id
-            bypass_cache = abap_true )-header-status_id.
+                                 ticket_id    = ticket_id
+                                 bypass_cache = abap_true
+                               )-header-status_id.
 
         TRY.
             DATA(transition) = REF #( me->defs->transitions[
-                               KEY primary_key COMPONENTS
-                               from_status = current_status
-                               to_status   = status_id ] ).
+                                        KEY primary_key COMPONENTS
+                                        from_status = current_status
+                                        to_status   = status_id ] ).
 
           CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
             RAISE EXCEPTION TYPE ycx_addict_table_content
@@ -334,7 +335,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
         rest_client->if_rest_resource~post( request ).
 
-        DATA(response) = rest_client->if_rest_client~get_response_entity( ).
+        DATA(response)  = rest_client->if_rest_client~get_response_entity( ).
         DATA(http_code) = response->get_header_field( '~status_code' ).
 
         IF http_code <> status_code-ok.
@@ -401,10 +402,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(field_candidates) = get_assignee_fields_for_status( status_id ).
 
         LOOP AT field_candidates ASSIGNING FIELD-SYMBOL(<field>).
-          ASSIGN ticket-custom_fields[
-                   KEY primary_key COMPONENTS
-                   jira_field = <field>
-                 ] TO FIELD-SYMBOL(<custom_field>).
+          ASSIGN ticket-custom_fields[ KEY primary_key COMPONENTS
+                                       jira_field = <field> ]
+                 TO FIELD-SYMBOL(<custom_field>).
 
           CHECK sy-subrc = 0 AND <custom_field>-value IS NOT INITIAL.
 
