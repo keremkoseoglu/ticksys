@@ -259,13 +259,24 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     TRY.
         DATA(status_csv) =
-          REDUCE string( INIT _csv TYPE string
+          REDUCE string( INIT _scsv TYPE string
                          FOR _status IN statuses
-                         NEXT _csv = |{ _csv }| &&
-                                     |{ COND #( WHEN _csv IS NOT INITIAL THEN ', ' ) }| &&
+                         NEXT _scsv = |{ _scsv }| &&
+                                     |{ COND #( WHEN _scsv IS NOT INITIAL THEN ', ' ) }| &&
                                      |{ _status }| ).
 
         DATA(jql) = |status in ({ status_csv })|.
+
+        IF types IS NOT INITIAL.
+          DATA(type_csv) =
+            REDUCE string( INIT _tcsv TYPE string
+                           FOR _type IN types
+                           NEXT _tcsv = |{ _tcsv }| &&
+                                       |{ COND #( WHEN _tcsv IS NOT INITIAL THEN ', ' ) }| &&
+                                       |{ _type }| ).
+
+          jql = |{ jql } and issuetype in ({ type_csv })|.
+        ENDIF.
 
         DATA(issues) = me->reader->search_issues( jql ).
         DATA(issues_copy) = issues.
