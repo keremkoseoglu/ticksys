@@ -18,6 +18,19 @@
     <DTELMASTER>T</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD04_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>Ticketing system description</DDTEXT>
+     <REPTEXT>Ticketing system description</REPTEXT>
+     <SCRTEXT_S>TckSysDsc</SCRTEXT_S>
+     <SCRTEXT_M>Ticketing sys.dscr.</SCRTEXT_M>
+     <SCRTEXT_L>Ticketing system description</SCRTEXT_L>
+    </item>
+   </DD04_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>

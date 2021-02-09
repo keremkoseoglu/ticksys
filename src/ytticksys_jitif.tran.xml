@@ -21,6 +21,12 @@
     <TCODE>YTTICKSYS_JITIF</TCODE>
     <PARAM>/*SM30 VIEWNAME=YTTICKSYS_JITIF;UPDATE=X;</PARAM>
    </TSTCP>
+   <I18N_TPOOL>
+    <TSTCT>
+     <SPRSL>E</SPRSL>
+     <TTEXT>Jira: Request note fields</TTEXT>
+    </TSTCT>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

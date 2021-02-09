@@ -21,6 +21,12 @@
     <TCODE>YTTICKSYS_JIDEF</TCODE>
     <PARAM>/*SM30 VIEWNAME=YTTICKSYS_JIDEF;UPDATE=X;</PARAM>
    </TSTCP>
+   <I18N_TPOOL>
+    <TSTCT>
+     <SPRSL>E</SPRSL>
+     <TTEXT>Jira - General definitions</TTEXT>
+    </TSTCT>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

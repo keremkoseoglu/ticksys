@@ -18,6 +18,19 @@
     <DTELMASTER>T</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD04_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>RFC destination for search</DDTEXT>
+     <REPTEXT>RFC destination for search</REPTEXT>
+     <SCRTEXT_S>Search RFC</SCRTEXT_S>
+     <SCRTEXT_M>Search RFC dest.</SCRTEXT_M>
+     <SCRTEXT_L>RFC destination for search</SCRTEXT_L>
+    </item>
+   </DD04_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>

@@ -16,6 +16,12 @@
     <TCODE>YTICKSYS001</TCODE>
     <TTEXT>Ticket listesi</TTEXT>
    </TSTCT>
+   <I18N_TPOOL>
+    <TSTCT>
+     <SPRSL>E</SPRSL>
+     <TTEXT>Ticket list</TTEXT>
+    </TSTCT>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

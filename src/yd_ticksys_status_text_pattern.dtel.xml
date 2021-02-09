@@ -18,6 +18,19 @@
     <DTELMASTER>T</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD04_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>Ticket status pattern</DDTEXT>
+     <REPTEXT>Ticket status pattern</REPTEXT>
+     <SCRTEXT_S>StatPtrn</SCRTEXT_S>
+     <SCRTEXT_M>Status pattern</SCRTEXT_M>
+     <SCRTEXT_L>Ticket status pattern</SCRTEXT_L>
+    </item>
+   </DD04_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>

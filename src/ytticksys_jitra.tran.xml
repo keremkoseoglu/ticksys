@@ -21,6 +21,12 @@
     <TCODE>YTTICKSYS_JITRA</TCODE>
     <PARAM>/*SM30 VIEWNAME=YTTICKSYS_JITRA;UPDATE=X;</PARAM>
    </TSTCP>
+   <I18N_TPOOL>
+    <TSTCT>
+     <SPRSL>E</SPRSL>
+     <TTEXT>Jira Transition ID&apos;s</TTEXT>
+    </TSTCT>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

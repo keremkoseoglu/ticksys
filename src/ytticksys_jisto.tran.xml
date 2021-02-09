@@ -21,6 +21,12 @@
     <TCODE>YTTICKSYS_JISTO</TCODE>
     <PARAM>/*SM30 VIEWNAME=YTTICKSYS_JISTO;UPDATE=X;</PARAM>
    </TSTCP>
+   <I18N_TPOOL>
+    <TSTCT>
+     <SPRSL>E</SPRSL>
+     <TTEXT>Jira status sequence</TTEXT>
+    </TSTCT>
+   </I18N_TPOOL>
   </asx:values>
  </asx:abap>
 </abapGit>

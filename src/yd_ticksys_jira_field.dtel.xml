@@ -18,6 +18,19 @@
     <DTELMASTER>T</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
+   <I18N_LANGS>
+    <LANGU>E</LANGU>
+   </I18N_LANGS>
+   <DD04_TEXTS>
+    <item>
+     <DDLANGUAGE>E</DDLANGUAGE>
+     <DDTEXT>Jira field</DDTEXT>
+     <REPTEXT>Jira field</REPTEXT>
+     <SCRTEXT_S>Jira field</SCRTEXT_S>
+     <SCRTEXT_M>Jira field</SCRTEXT_M>
+     <SCRTEXT_L>Jira field</SCRTEXT_L>
+    </item>
+   </DD04_TEXTS>
   </asx:values>
  </asx:abap>
 </abapGit>
