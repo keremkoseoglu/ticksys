@@ -116,7 +116,7 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
           EXPORTING
             textid   = ycx_addict_class_method=>unexpected_error
             previous = diaper
-            class    = CONV #( cl_abap_classdescr=>get_class_name( me ) )
+            class    = CONV #( ycl_addict_class=>get_class_name( me ) )
             method   = me->method-constructor.
     ENDTRY.
   ENDMETHOD.
@@ -134,7 +134,7 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
       RAISE EXCEPTION TYPE ycx_addict_method_parameter
         EXPORTING
           textid      = ycx_addict_method_parameter=>param_value_initial
-          class_name  = CONV #( cl_abap_classdescr=>get_class_name( me ) )
+          class_name  = CONV #( ycl_addict_class=>get_class_name( me ) )
           method_name = me->method-welcome_input
           param_name  = CONV #( me->field-ticsy_id ).
     ENDIF.
