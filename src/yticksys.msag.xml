@@ -41,6 +41,12 @@
     <T100>
      <SPRSL>T</SPRSL>
      <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>005</MSGNR>
+     <TEXT>&amp;1 &amp;2 Ticket&apos;ı sistemde bulunamadı</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>011</MSGNR>
      <TEXT>Ticketing sistemi hatası</TEXT>
     </T100>

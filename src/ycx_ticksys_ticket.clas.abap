@@ -35,6 +35,15 @@ public section.
       attr3 type scx_attrname value '',
       attr4 type scx_attrname value '',
     end of STATUS_UPDATE_ERROR .
+  constants:
+    begin of TICKET_NOT_FOUND,
+      msgid type symsgid value 'YTICKSYS',
+      msgno type symsgno value '005',
+      attr1 type scx_attrname value 'TICSY_ID',
+      attr2 type scx_attrname value 'TICKET_ID',
+      attr3 type scx_attrname value '',
+      attr4 type scx_attrname value '',
+    end of TICKET_NOT_FOUND .
   data TICSY_ID type YD_TICKSYS_TICSY_ID .
   data TICKET_ID type YD_ADDICT_TICKET_ID .
 

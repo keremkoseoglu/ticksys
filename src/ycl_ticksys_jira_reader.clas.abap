@@ -68,7 +68,7 @@ CLASS ycl_ticksys_jira_reader DEFINITION
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
-    constants json_null type text4 value 'null'.
+    CONSTANTS json_null TYPE text4 VALUE 'null'.
 
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
@@ -194,6 +194,22 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
       DATA(results) = search_issues( jql         = |issuekey={ ticket_id }|
                                      max_results = 1 ).
 
+      " Validate """"""""""""""""""""""""""""""""""""""""""""""""""""
+      DATA(total) = VALUE string( results[ parent = space
+                                           name   = 'total'
+                                         ]-value OPTIONAL ).
+
+      IF total = space OR total = '0'.
+        DATA(ticket_error) = NEW ycx_ticksys_ticket( textid    = ycx_ticksys_ticket=>ticket_not_found
+                                                     ticsy_id  = ycl_ticksys_jira=>ticsy_id
+                                                     ticket_id = ticket_id ).
+
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
+            previous = ticket_error.
+      ENDIF.
+
       " Read values """""""""""""""""""""""""""""""""""""""""""""""""
       cache-header-ticket_description = VALUE #( results[ parent = |/issues/1/fields|
                                                           name   = 'summary'
@@ -245,8 +261,8 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                         name   = 'name' ]
                TO FIELD-SYMBOL(<custom_field>).
 
-        CHECK sy-subrc = 0 and
-              <custom_Field>-value <> me->json_null.
+        CHECK sy-subrc = 0 AND
+              <custom_field>-value <> me->json_null.
 
         INSERT VALUE custom_field_value_dict(
                        jira_field = <jsaf>-jira_field
@@ -260,7 +276,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                TO FIELD-SYMBOL(<tif_value>).
 
         CHECK sy-subrc = 0 AND
-              <tif_value>-value IS NOT INITIAL and
+              <tif_value>-value IS NOT INITIAL AND
               <tif_value>-value <> me->json_null.
 
         cache-transport_instructions =
@@ -272,7 +288,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
       LOOP AT me->defs->tcode_fields ASSIGNING FIELD-SYMBOL(<tcf>).
         APPEND LINES OF VALUE yif_addict_ticketing_system=>tcode_list(
                                 FOR _entry IN results
-                                WHERE ( parent = |/issues/1/fields/{ <tcf> }| and
+                                WHERE ( parent = |/issues/1/fields/{ <tcf> }| AND
                                         value <> me->json_null )
                                 ( CONV #( _entry-value ) ) )
                TO cache-tcodes.
