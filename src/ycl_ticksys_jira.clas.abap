@@ -23,6 +23,13 @@ CLASS ycl_ticksys_jira DEFINITION
     METHODS get_assignee_fields_for_status
       IMPORTING !status_id    TYPE yd_addict_ticket_status_id
       RETURNING VALUE(fields) TYPE ycl_ticksys_jira_def=>jira_field_list.
+
+    METHODS get_status_change_transition
+      IMPORTING !ticket_id    TYPE yd_addict_ticket_id
+                !status_id    TYPE yd_addict_ticket_status_id
+      RETURNING VALUE(result) TYPE REF TO ytticksys_jitra
+      RAISING   ycx_ticksys_ticketing_system
+                ycx_addict_undefined_status_ch.
 ENDCLASS.
 
 
@@ -67,6 +74,39 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD get_status_change_transition.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the transition needed for status change
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    DATA(current_status) = me->reader->get_jira_issue(
+                               ticket_id    = ticket_id
+                               bypass_cache = abap_true
+                           )-header-status_id.
+
+    TRY.
+        result = REF #( me->defs->transitions[
+                        KEY primary_key COMPONENTS
+                        from_status = current_status
+                        to_status   = status_id ] ).
+
+      CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
+        DATA(table_content_error) =
+          NEW ycx_addict_table_content(
+                  textid   = ycx_addict_table_content=>no_entry_for_objectid
+                  previous = itab_error
+                  tabname  = ycl_ticksys_jira_def=>table-jira_transitions
+                  objectid = |{ current_status }-{ status_id }| ).
+
+        RAISE EXCEPTION TYPE ycx_addict_undefined_status_ch
+          EXPORTING
+            textid    = ycx_addict_undefined_status_ch=>ticket_cant_be_set
+            previous  = table_content_error
+            ticket_id = ticket_id
+            status_id = status_id.
+    ENDTRY.
+  ENDMETHOD.
+
+
   METHOD yif_addict_ticketing_system~is_ticket_id_valid.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Checks if the ticket exists in the system
@@ -76,6 +116,26 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         output = abap_true.
       CATCH cx_root.
         output = abap_false.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD yif_addict_ticketing_system~can_set_ticket_to_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Tells if the ticket can be set to the desired status
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        get_status_change_transition( ticket_id = ticket_id
+                                      status_id = status_id ).
+        result = abap_true.
+
+      CATCH ycx_addict_undefined_status_ch.
+        result = abap_false.
+
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING
+            previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -317,25 +377,14 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_client) = me->reader->create_http_client( url ).
 
         " Create body """""""""""""""""""""""""""""""""""""""""""""""
+        DATA(transition) = get_status_change_transition(
+                               ticket_id = ticket_id
+                               status_id = status_id ).
+
         DATA(current_status) = me->reader->get_jira_issue(
                                  ticket_id    = ticket_id
                                  bypass_cache = abap_true
                                )-header-status_id.
-
-        TRY.
-            DATA(transition) = REF #( me->defs->transitions[
-                                        KEY primary_key COMPONENTS
-                                        from_status = current_status
-                                        to_status   = status_id ] ).
-
-          CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
-            RAISE EXCEPTION TYPE ycx_addict_table_content
-              EXPORTING
-                textid   = ycx_addict_table_content=>no_entry_for_objectid
-                previous = itab_error
-                tabname  = ycl_ticksys_jira_def=>table-jira_transitions
-                objectid = |{ current_status }-{ status_id }|.
-        ENDTRY.
 
         DATA(body) = |\{"transition":\{"id":"{ transition->transition_id }"\}\}|.
         DATA(rest_client) = NEW cl_rest_http_client( http_client ).
