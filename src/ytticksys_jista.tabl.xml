@@ -10,7 +10,7 @@
     <DDTEXT>Statüye göre Assignee hangi alandan alınacak</DDTEXT>
     <MAINFLAG>X</MAINFLAG>
     <CONTFLAG>A</CONTFLAG>
-    <EXCLASS>1</EXCLASS>
+    <EXCLASS>3</EXCLASS>
    </DD02V>
    <DD09L>
     <TABNAME>YTTICKSYS_JISTA</TABNAME>
