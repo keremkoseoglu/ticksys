@@ -294,6 +294,21 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                TO cache-tcodes.
       ENDLOOP.
 
+      LOOP AT me->defs->main_module_fields ASSIGNING FIELD-SYMBOL(<mm>).
+        DATA(mm_parent) = |/issues/1/fields/{ <mm> }|.
+
+        LOOP AT results ASSIGNING FIELD-SYMBOL(<mm_result>)
+                        WHERE parent = mm_parent AND
+                              value  IS NOT INITIAL.
+
+          CASE <mm_result>-name.
+            WHEN `id`   . cache-header-main_module_id   = <mm_result>-value.
+            WHEN `value`. cache-header-main_module_text = <mm_result>-value.
+          ENDCASE.
+        ENDLOOP.
+      ENDLOOP.
+
+
       SORT cache-linked_tickets.
       DELETE ADJACENT DUPLICATES FROM cache-linked_tickets.
 

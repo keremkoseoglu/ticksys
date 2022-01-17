@@ -20,15 +20,16 @@ CLASS ycl_ticksys_jira_def DEFINITION
     CONSTANTS: BEGIN OF table,
                  jira_def         TYPE tabname VALUE 'YTTICKSYS_JIDEF',
                  jira_transitions TYPE tabname VALUE 'YTTICKSYS_JITRA',
-                 status_order     type tabname value 'YTTICKSYS_JISTO',
+                 status_order     TYPE tabname VALUE 'YTTICKSYS_JISTO',
                END OF table.
 
-    DATA definitions TYPE ytticksys_jidef READ-ONLY.
-    DATA transitions TYPE transition_set READ-ONLY.
-    DATA status_assignee_fields TYPE jista_list READ-ONLY.
-    DATA status_orders TYPE status_order_list READ-ONLY.
-    DATA transport_instruction_fields TYPE jira_field_list READ-ONLY.
-    DATA tcode_fields TYPE jira_field_list READ-ONLY.
+    DATA: definitions                  TYPE ytticksys_jidef READ-ONLY,
+          transitions                  TYPE transition_set READ-ONLY,
+          status_assignee_fields       TYPE jista_list READ-ONLY,
+          status_orders                TYPE status_order_list READ-ONLY,
+          transport_instruction_fields TYPE jira_field_list READ-ONLY,
+          tcode_fields                 TYPE jira_field_list READ-ONLY,
+          main_module_fields           TYPE jira_field_list READ-ONLY.
 
     CLASS-METHODS get_instance
       RETURNING VALUE(instance) TYPE REF TO ycl_ticksys_jira_def
@@ -105,11 +106,17 @@ CLASS ycl_ticksys_jira_def IMPLEMENTATION.
              ORDER BY status_id, priority
              INTO TABLE @me->status_assignee_fields.
 
-    SELECT jira_field FROM ytticksys_jitif              "#EC CI_NOWHERE
+    SELECT jira_field FROM ytticksys_jitif
+           WHERE jira_field <> @space
            INTO TABLE @me->transport_instruction_fields.
 
-    SELECT jira_field FROM ytticksys_jitcf              "#EC CI_NOWHERE
+    SELECT jira_field FROM ytticksys_jitcf
+           WHERE jira_field <> @space
            INTO TABLE @me->tcode_fields.
+
+    SELECT jira_field FROM ytticksys_jimmf
+           WHERE jira_field <> @space
+           INTO TABLE @me->main_module_fields.
 
     SELECT * FROM ytticksys_jisto                       "#EC CI_NOWHERE
              INTO TABLE @me->status_orders.
