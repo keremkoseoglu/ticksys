@@ -240,6 +240,10 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                                  name   = 'name'
                                                ]-value OPTIONAL ).
 
+      cache-header-assignee  = VALUE #( results[ parent = '/issues/1/fields/assignee'
+                                                 name   = 'name'
+                                               ]-value OPTIONAL ).
+
       cache-sub_tickets = VALUE #( FOR GROUPS _value OF _entry IN results "#EC CI_SORTSEQ
                                    WHERE ( parent IN me->subtask_parent_rng AND
                                            name = 'key' )
