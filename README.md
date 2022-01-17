@@ -107,6 +107,15 @@ If you have custom fields containing related SAP TCode values, you need to regis
   </tr>
 </table>
 
+If you have custom fields containing main SAP module, you need to register their custom fields into **YTTICKSYS_JIMMF** . The program will find the first non-empty field and assume it to be the main module.
+
+<table>
+  <tr>
+    <td><b>JIRA_FIELD</b></td>
+    <td>(Field name containing instructions. Sample: customfield_10109)</td>
+  </tr>
+</table>
+
 If you will be using **GET_EARLIEST_STATUS**, you need to fill **YTTICKSYS_JISTO** with the correct order of Jira statuses. This table is text based because ID's may change with each new definition, but status descriptions are typically stable.
 
 <table>
