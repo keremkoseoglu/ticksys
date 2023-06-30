@@ -116,20 +116,20 @@
 <p>For each ticketing system you have, you need to have distinct implementation of this interface.</p>
 <p>A sample implementation for Jira can be seen <a href="https://github.com/keremkoseoglu/ticksys/blob/main/src/ycl_ticksys_jira.clas.abap">here</a>.</p>
 <p>Here is a list of methods that need to be implemented. Most are optional; depending on your use case.</p>
-<pre><code>METHODS is_ticket_id_valid 
+<pre><code class="language-abap">METHODS is_ticket_id_valid 
     IMPORTING !ticket_id    TYPE yd_ticksys_ticket_id
     RETURNING VALUE(output) TYPE abap_bool
     RAISING   ycx_ticksys_ticketing_system.
 </code></pre>
 <p>Detects if the given ticket ID is valid and returns the result. If this method is called with an invalid ticket ID, it should return SPACE. </p>
-<pre><code>METHODS can_set_ticket_to_status 
+<pre><code class="language-abap">METHODS can_set_ticket_to_status 
     IMPORTING !ticket_id    TYPE yd_ticksys_ticket_id
               !status_id    TYPE yd_ticksys_ticket_status_id
     RETURNING VALUE(result) TYPE abap_bool
     RAISING   ycx_ticksys_ticketing_system.
 </code></pre>
 <p>Determines if the ticket is suitable to be set to the given status code. </p>
-<pre><code>METHODS get_ticket_header
+<pre><code class="language-abap">METHODS get_ticket_header
     IMPORTING !ticket_id    TYPE yd_ticksys_ticket_id
     RETURNING VALUE(output) TYPE ysticksys_ticket_header
     RAISING   ycx_ticksys_ticketing_system.
@@ -217,18 +217,6 @@
     RAISING   ycx_ticksys_ticketing_system.
 </code></pre>
 <p>This method should build the URL of the ticket, and open the ticket in a browser. If the ticketing system is not web based, it should call the executable to display the ticket (if possible).</p>
-<pre><code class="language-abap">METHODS get_requests_of_tickets
-    IMPORTING !ticket_keys    TYPE ticket_key_list
-    RETURNING VALUE(requests) TYPE trkorr_list
-    RAISING   ycx_ticksys_ticketing_system.
-</code></pre>
-<p>This method should return a list of transport requests which belong to the given ticket ID's. </p>
-<p>Hint: A suggested best practice is to put the ticket ID into the transport request description. Preferably as the first "n" characters. You can also put the request numbers into tickets, or use a Z-table - but those are less convenient.</p>
-<ul>
-<li>If you are entering ticket ID's into transport request descriptions, you can query E7* tables.</li>
-<li>If you are entering request numbers into tickets, you should call a ticketing system API and query tickets to build the request list.</li>
-<li>If you are mapping requests - tickets through a Z-table, you should query the Z-table.</li>
-</ul>
 <h2 id="customizing">Customizing</h2>
 <p>After finishing the steps above, add a new entry to <strong>YTTICKSYS_TICSY</strong> with the following values:</p>
 <table>
@@ -242,7 +230,7 @@
   </tr>
   <tr>
     <td><b>TICSY_IMP_CLASS</b></td>
-    <td>(name of your Z-Class implementing `YIF_TICKSYS_TICKETING_SYSTEM`)</td>
+    <td>(name of your Z-Class implementing YIF_TICKSYS_TICKETING_SYSTEM)</td>
   </tr>
 </table>
               
