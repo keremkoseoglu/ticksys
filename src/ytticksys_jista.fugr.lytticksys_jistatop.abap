@@ -1,4 +1,3 @@
-* regenerated at 08.11.2020 16:44:30
 FUNCTION-POOL YTTICKSYS_JISTA            MESSAGE-ID SV.
 
 * INCLUDE LYTTICKSYS_JISTAD...               " Local class definition

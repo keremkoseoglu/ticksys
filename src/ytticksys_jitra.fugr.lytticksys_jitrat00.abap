@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    view related data declarations
-*   generation date: 30.10.2020 at 18:36:59
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 *...processing: YTTICKSYS_JITRA.................................*
 DATA:  BEGIN OF STATUS_YTTICKSYS_JITRA               .   "state vector

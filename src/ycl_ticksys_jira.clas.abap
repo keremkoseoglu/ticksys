@@ -1,37 +1,38 @@
 CLASS ycl_ticksys_jira DEFINITION
   PUBLIC
   FINAL
-  CREATE PUBLIC .
+  CREATE PUBLIC.
 
   PUBLIC SECTION.
-    INTERFACES yif_addict_ticketing_system.
+    INTERFACES yif_ticksys_ticketing_system.
+
     CONSTANTS ticsy_id TYPE yd_ticksys_ticsy_id VALUE 'JIRA'.
+
     CLASS-METHODS class_constructor.
-  PROTECTED SECTION.
+
   PRIVATE SECTION.
     CONSTANTS: BEGIN OF status_code,
                  ok TYPE char3 VALUE '204',
                END OF status_code.
 
-    CLASS-DATA defs TYPE REF TO ycl_ticksys_jira_def.
+    CLASS-DATA defs   TYPE REF TO ycl_ticksys_jira_def.
     CLASS-DATA reader TYPE REF TO ycl_ticksys_jira_reader.
 
     CLASS-METHODS get_ticket_url
-      IMPORTING !ticket_id TYPE yd_addict_ticket_id
+      IMPORTING ticket_id  TYPE yd_ticksys_ticket_id
       RETURNING VALUE(url) TYPE string.
 
     METHODS get_assignee_fields_for_status
-      IMPORTING !status_id    TYPE yd_addict_ticket_status_id
+      IMPORTING status_id     TYPE yd_ticksys_ticket_status_id
       RETURNING VALUE(fields) TYPE ycl_ticksys_jira_def=>jira_field_list.
 
     METHODS get_status_change_transition
-      IMPORTING !ticket_id    TYPE yd_addict_ticket_id
-                !status_id    TYPE yd_addict_ticket_status_id
+      IMPORTING ticket_id     TYPE yd_ticksys_ticket_id
+                status_id     TYPE yd_ticksys_ticket_status_id
       RETURNING VALUE(result) TYPE REF TO ytticksys_jitra
       RAISING   ycx_ticksys_ticketing_system
-                ycx_addict_undefined_status_ch.
+                ycx_ticksys_undefined_status_c.
 ENDCLASS.
-
 
 
 CLASS ycl_ticksys_jira IMPLEMENTATION.
@@ -47,6 +48,49 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
+  METHOD get_assignee_fields_for_status.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns assignee fields for the given status
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list( FOR _jsaf IN me->defs->status_assignee_fields
+                                                                 WHERE ( status_id = status_id )
+                                                                 ( _jsaf-jira_field ) )
+           TO fields.
+
+    APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list( FOR _jsaf IN me->defs->status_assignee_fields
+                                                                 WHERE ( status_id = space )
+                                                                 ( _jsaf-jira_field ) )
+           TO fields.
+  ENDMETHOD.
+
+  METHOD get_status_change_transition.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the transition needed for status change
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    DATA(current_status) = me->reader->get_jira_issue( ticket_id    = ticket_id
+                                                       bypass_cache = abap_true
+                           )-header-status_id.
+
+    TRY.
+        result = REF #( me->defs->transitions[
+                                        KEY primary_key
+                                        COMPONENTS from_status = current_status
+                                                   to_status   = status_id ] ).
+
+      CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
+        DATA(table_content_error) =
+          NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
+                                        previous = itab_error
+                                        tabname  = ycl_ticksys_jira_def=>table-jira_transitions
+                                        objectid = |{ current_status }-{ status_id }| ).
+
+        RAISE EXCEPTION NEW ycx_ticksys_undefined_status_c(
+                                textid    = ycx_ticksys_undefined_status_c=>ticket_cant_be_set
+                                previous  = table_content_error
+                                ticket_id = ticket_id
+                                status_id = status_id ).
+    ENDTRY.
+  ENDMETHOD.
 
   METHOD get_ticket_url.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -55,72 +99,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     url = |{ ycl_ticksys_jira=>defs->definitions-url }/browse/{ ticket_id }|.
   ENDMETHOD.
 
-
-  METHOD get_assignee_fields_for_status.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns assignee fields for the given status
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list(
-                            FOR _jsaf IN me->defs->status_assignee_fields
-                            WHERE ( status_id = status_id )
-                            ( _jsaf-jira_field ) )
-           TO fields.
-
-    APPEND LINES OF VALUE ycl_ticksys_jira_def=>jira_field_list(
-                            FOR _jsaf IN me->defs->status_assignee_fields
-                            WHERE ( status_id = space )
-                            ( _jsaf-jira_field ) )
-           TO fields.
-  ENDMETHOD.
-
-
-  METHOD get_status_change_transition.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns the transition needed for status change
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    DATA(current_status) = me->reader->get_jira_issue(
-                               ticket_id    = ticket_id
-                               bypass_cache = abap_true
-                           )-header-status_id.
-
-    TRY.
-        result = REF #( me->defs->transitions[
-                        KEY primary_key COMPONENTS
-                        from_status = current_status
-                        to_status   = status_id ] ).
-
-      CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
-        DATA(table_content_error) =
-          NEW ycx_addict_table_content(
-                  textid   = ycx_addict_table_content=>no_entry_for_objectid
-                  previous = itab_error
-                  tabname  = ycl_ticksys_jira_def=>table-jira_transitions
-                  objectid = |{ current_status }-{ status_id }| ).
-
-        RAISE EXCEPTION TYPE ycx_addict_undefined_status_ch
-          EXPORTING
-            textid    = ycx_addict_undefined_status_ch=>ticket_cant_be_set
-            previous  = table_content_error
-            ticket_id = ticket_id
-            status_id = status_id.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~is_ticket_id_valid.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Checks if the ticket exists in the system
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        me->reader->get_jira_issue( ticket_id ).
-        output = abap_true.
-      CATCH cx_root.
-        output = abap_false.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~can_set_ticket_to_status.
+  METHOD yif_ticksys_ticketing_system~can_set_ticket_to_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Tells if the ticket can be set to the desired status
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -129,124 +108,35 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                                       status_id = status_id ).
         result = abap_true.
 
-      CATCH ycx_addict_undefined_status_ch.
+      CATCH ycx_ticksys_undefined_status_c.
         result = abap_false.
 
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
-
-  METHOD yif_addict_ticketing_system~get_ticket_header.
+  METHOD yif_ticksys_ticketing_system~display_ticket.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns the header of the ticket
+    " Displays ticket in browser
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        output = me->reader->get_jira_issue( ticket_id )-header.
 
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
-    ENDTRY.
+    DATA url TYPE text100.
+
+    CHECK ticket_id IS NOT INITIAL.
+    url = get_ticket_url( ticket_id ).
+
+    CALL FUNCTION 'CALL_BROWSER'
+      EXPORTING  url                    = url
+      EXCEPTIONS frontend_not_supported = 1
+                 frontend_error         = 2
+                 prog_not_found         = 3
+                 no_batch               = 4
+                 unspecified_error      = 5
+                 OTHERS                 = 6 ##FM_SUBRC_OK.
   ENDMETHOD.
 
-
-  METHOD yif_addict_ticketing_system~get_transport_instructions.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns transport instructions from Jira
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        DATA(issue) = me->reader->get_jira_issue( ticket_id ).
-        IF issue-transport_instructions IS NOT INITIAL.
-          instructions = VALUE #( ( issue-transport_instructions ) ).
-        ENDIF.
-
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~get_sub_tickets.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns the sub-tickets of the given ticket
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        children = me->reader->get_jira_issue( parent )-sub_tickets.
-
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~get_linked_tickets.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns tickets which are linked to the given ticket
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        tickets = me->reader->get_jira_issue( ticket_id )-linked_tickets.
-
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~get_related_tcodes.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Gets the tcodes related to the given ticket
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        tcodes = me->reader->get_jira_issue( ticket_id )-tcodes.
-
-      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
-        RAISE EXCEPTION ts_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~get_tickets_related_to_tcodes.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns a list of tickets related to the given TCodes
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    TRY.
-        tickets = ycl_ticksys_jira_gtrttc=>get_instance( )->execute( tcodes ).
-
-      CATCH ycx_addict_ticketing_system INTO DATA(system_error).
-        RAISE EXCEPTION system_error.
-      CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_addict_ticketing_system
-          EXPORTING
-            textid   = ycx_addict_ticketing_system=>ycx_addict_ticketing_system
-            previous = diaper.
-    ENDTRY.
-  ENDMETHOD.
-
-
-  METHOD yif_addict_ticketing_system~get_earliest_status.
+  METHOD yif_ticksys_ticketing_system~get_earliest_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Returns the earliest status from the given status values
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -254,17 +144,15 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     TRY.
         IF me->defs->status_orders IS INITIAL.
-          RAISE EXCEPTION TYPE ycx_addict_table_content
-            EXPORTING
-              textid  = ycx_addict_table_content=>table_empty
-              tabname = ycl_ticksys_jira_def=>table-status_order.
+          RAISE EXCEPTION NEW ycx_addict_table_content( textid  = ycx_addict_table_content=>table_empty
+                                                        tabname = ycl_ticksys_jira_def=>table-status_order ).
         ENDIF.
 
         DATA(unique_statuses) = statuses.
         SORT unique_statuses.
         DELETE ADJACENT DUPLICATES FROM unique_statuses.
 
-        DATA(earliest_status_id) = CONV yd_addict_ticket_status_id( space ).
+        DATA(earliest_status_id) = CONV yd_ticksys_ticket_status_id( space ).
         DATA(earliest_status_order) = CONV ytticksys_jisto-status_order( 32767 ).
 
         DATA(status_master) = me->reader->get_statuses( ).
@@ -275,20 +163,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
             CONTINUE.
           ENDIF.
 
-          ASSIGN status_master[ KEY primary_key COMPONENTS
-                                status_id = <status> ]
+          ASSIGN status_master[ KEY primary_key COMPONENTS status_id = <status> ]
                  TO FIELD-SYMBOL(<status_master>).
 
           IF sy-subrc <> 0.
-            RAISE EXCEPTION TYPE ycx_ticksys_ticket_status
-              EXPORTING
-                textid    = ycx_ticksys_ticket_status=>invalid_status_id
-                status_id = <status>.
+            RAISE EXCEPTION NEW ycx_ticksys_ticket_status( textid    = ycx_ticksys_ticket_status=>invalid_status_id
+                                                           status_id = <status> ).
           ENDIF.
 
           LOOP AT me->defs->status_orders ASSIGNING FIELD-SYMBOL(<status_order>).
-            CHECK <status_master>-status_text CP <status_order>-status_text_pattern AND
-                  <status_order>-status_order <  earliest_status_order.
+            CHECK     <status_master>-status_text CP <status_order>-status_text_pattern
+                  AND <status_order>-status_order  < earliest_status_order.
 
             earliest_status_id = <status>.
             earliest_status_order = <status_order>-status_order.
@@ -296,22 +181,75 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         ENDLOOP.
 
         earliest = VALUE #( status_id   = earliest_status_id
-                            status_text = VALUE #( status_master[ KEY primary_key COMPONENTS
-                                                                  status_id = <status>
-                                                                ]-status_text OPTIONAL ) ).
+                            status_text = VALUE #( status_master[ KEY primary_key COMPONENTS status_id = <status>
+                                                   ]-status_text OPTIONAL ) ).
 
-      CATCH ycx_addict_ticketing_system INTO DATA(system_error).
+      CATCH ycx_ticksys_ticketing_system INTO DATA(system_error).
         RAISE EXCEPTION system_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_addict_ticketing_system
-          EXPORTING
-            textid   = ycx_addict_ticketing_system=>ycx_addict_ticketing_system
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                                textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
+                                previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
+  METHOD yif_ticksys_ticketing_system~get_linked_tickets.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns tickets which are linked to the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        tickets = me->reader->get_jira_issue( ticket_id )-linked_tickets.
 
-  METHOD yif_addict_ticketing_system~get_tickets_with_status.
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_related_tcodes.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Gets the tcodes related to the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        tcodes = me->reader->get_jira_issue( ticket_id )-tcodes.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_sub_tickets.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns the sub-tickets of the given ticket
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        children = me->reader->get_jira_issue( parent )-sub_tickets.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_tickets_related_to_tcodes.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns a list of tickets related to the given TCodes
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        tickets = ycl_ticksys_jira_gtrttc=>get_instance( )->execute( tcodes ).
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(system_error).
+        RAISE EXCEPTION system_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
+  ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_tickets_with_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Returns the tickets having the passed statuses
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -342,17 +280,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(issues_copy) = issues.
 
         LOOP AT issues ASSIGNING FIELD-SYMBOL(<issue>)
-                WHERE parent IN me->reader->issue_key_parent_rng AND
-                      name   =  'key'.
+             WHERE     parent IN me->reader->issue_key_parent_rng "#EC CI_SORTSEQ
+                   AND name    = 'key'.
 
           DATA(entry) =
-            VALUE yif_addict_ticketing_system=>ticket_status_dict(
-                    ticket_id = <issue>-value
-                    status_id = VALUE #( issues_copy[ type    = <issue>-type
-                                                      subtype = <issue>-subtype
-                                                      parent  = |{ <issue>-parent }/fields/status|
-                                                      name    = 'id'
-                                                    ]-value OPTIONAL ) ).
+            VALUE yif_ticksys_ticketing_system=>ticket_status_dict(
+                      ticket_id = <issue>-value
+                      status_id = VALUE #( issues_copy[ type    = <issue>-type
+                                                        subtype = <issue>-subtype
+                                                        parent  = |{ <issue>-parent }/fields/status|
+                                                        name    = 'id'
+                                           ]-value OPTIONAL ) ).
 
           APPEND entry TO tickets.
         ENDLOOP.
@@ -360,64 +298,54 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
-
-  METHOD yif_addict_ticketing_system~set_ticket_status.
+  METHOD yif_ticksys_ticketing_system~get_ticket_header.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Sets the status of the ticket
+    " Returns the header of the ticket
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        " Create HTTP client """"""""""""""""""""""""""""""""""""""""
-        DATA(url) = |{ me->defs->definitions-url }/rest/api/2/issue/{ ticket_id }/transitions|.
-        DATA(http_client) = me->reader->create_http_client( url ).
+        output = me->reader->get_jira_issue( ticket_id )-header.
 
-        " Create body """""""""""""""""""""""""""""""""""""""""""""""
-        DATA(transition) = get_status_change_transition(
-                               ticket_id = ticket_id
-                               status_id = status_id ).
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
+  ENDMETHOD.
 
-        DATA(current_status) = me->reader->get_jira_issue(
-                                 ticket_id    = ticket_id
-                                 bypass_cache = abap_true
-                               )-header-status_id.
-
-        DATA(body) = |\{"transition":\{"id":"{ transition->transition_id }"\}\}|.
-        DATA(rest_client) = NEW cl_rest_http_client( http_client ).
-
-        DATA(request) = rest_client->if_rest_client~create_request_entity( ).
-        request->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
-        request->set_string_data( body ).
-
-        rest_client->if_rest_resource~post( request ).
-
-        DATA(response)  = rest_client->if_rest_client~get_response_entity( ).
-        DATA(http_code) = response->get_header_field( '~status_code' ).
-
-        IF http_code <> status_code-ok.
-          RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-            EXPORTING
-              textid    = ycx_ticksys_ticketing_system=>status_update_error
-              ticsy_id  = me->ticsy_id
-              ticket_id = ticket_id
-              status_id = status_id.
+  METHOD yif_ticksys_ticketing_system~get_transport_instructions.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Returns transport instructions from Jira
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        DATA(issue) = me->reader->get_jira_issue( ticket_id ).
+        IF issue-transport_instructions IS NOT INITIAL.
+          instructions = VALUE #( ( issue-transport_instructions ) ).
         ENDIF.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
+  METHOD yif_ticksys_ticketing_system~is_ticket_id_valid.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Checks if the ticket exists in the system
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    TRY.
+        me->reader->get_jira_issue( ticket_id ).
+        output = abap_true.
+      CATCH cx_root.
+        output = abap_false.
+    ENDTRY.
+  ENDMETHOD.
 
-  METHOD yif_addict_ticketing_system~set_ticket_assignee.
+  METHOD yif_ticksys_ticketing_system~set_ticket_assignee.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Sets the ticket assignee
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -438,22 +366,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_code) = response->get_header_field( '~status_code' ).
 
         IF http_code <> me->status_code-ok.
-          RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
-            EXPORTING
-              ticket_id = ticket_id.
+          RAISE EXCEPTION NEW ycx_ticksys_assignee_update( ticket_id = ticket_id ).
         ENDIF.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
-
-  METHOD yif_addict_ticketing_system~set_ticket_assignee_for_status.
+  METHOD yif_ticksys_ticketing_system~set_ticket_assignee_for_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Sets the ticket assignee which corresponds to the provided status
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -462,52 +385,68 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(field_candidates) = get_assignee_fields_for_status( status_id ).
 
         LOOP AT field_candidates ASSIGNING FIELD-SYMBOL(<field>).
-          ASSIGN ticket-custom_fields[ KEY primary_key COMPONENTS
-                                       jira_field = <field> ]
+          ASSIGN ticket-custom_fields[ KEY primary_key COMPONENTS jira_field = <field> ]
                  TO FIELD-SYMBOL(<custom_field>).
 
           CHECK sy-subrc = 0 AND <custom_field>-value IS NOT INITIAL.
 
-          yif_addict_ticketing_system~set_ticket_assignee(
-              ticket_id = ticket_id
-              assignee  = <custom_field>-value ).
+          yif_ticksys_ticketing_system~set_ticket_assignee( ticket_id = ticket_id
+                                                            assignee  = <custom_field>-value ).
 
           RETURN.
         ENDLOOP.
 
-        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
-          EXPORTING
-            textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
-            ticket_id = ticket_id.
+        RAISE EXCEPTION NEW ycx_ticksys_assignee_update( textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
+                                                         ticket_id = ticket_id ).
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING
-            previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
-
-  METHOD yif_addict_ticketing_system~display_ticket.
+  METHOD yif_ticksys_ticketing_system~set_ticket_status.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Displays ticket in browser
+    " Sets the status of the ticket
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    DATA url TYPE text100.
+    TRY.
+        " Create HTTP client """"""""""""""""""""""""""""""""""""""""
+        DATA(url) = |{ me->defs->definitions-url }/rest/api/2/issue/{ ticket_id }/transitions|.
+        DATA(http_client) = me->reader->create_http_client( url ).
 
-    CHECK ticket_id IS NOT INITIAL.
-    url = get_ticket_url( ticket_id ).
+        " Create body """""""""""""""""""""""""""""""""""""""""""""""
+        DATA(transition) = get_status_change_transition( ticket_id = ticket_id
+                                                         status_id = status_id ).
 
-    CALL FUNCTION 'CALL_BROWSER'
-      EXPORTING
-        url                    = url
-      EXCEPTIONS
-        frontend_not_supported = 1
-        frontend_error         = 2
-        prog_not_found         = 3
-        no_batch               = 4
-        unspecified_error      = 5
-        OTHERS                 = 6 ##FM_SUBRC_OK.
+        DATA(current_status) = me->reader->get_jira_issue( ticket_id    = ticket_id
+                                                           bypass_cache = abap_true
+                               )-header-status_id.
+
+        DATA(body) = |\{"transition":\{"id":"{ transition->transition_id }"\}\}|.
+        DATA(rest_client) = NEW cl_rest_http_client( http_client ).
+
+        DATA(request) = rest_client->if_rest_client~create_request_entity( ).
+        request->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
+        request->set_string_data( body ).
+
+        rest_client->if_rest_resource~post( request ).
+
+        DATA(response)  = rest_client->if_rest_client~get_response_entity( ).
+        DATA(http_code) = response->get_header_field( '~status_code' ).
+
+        IF http_code <> status_code-ok.
+          RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                                  textid    = ycx_ticksys_ticketing_system=>status_update_error
+                                  ticsy_id  = me->ticsy_id
+                                  ticket_id = ticket_id
+                                  status_id = status_id ).
+        ENDIF.
+
+      CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
+        RAISE EXCEPTION ts_error.
+      CATCH cx_root INTO DATA(diaper).
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+    ENDTRY.
   ENDMETHOD.
 ENDCLASS.

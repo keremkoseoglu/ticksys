@@ -1,8 +1,8 @@
 REPORT yp_ticksys_ticket_list.
 
-TABLES ysaddict_ticket_header.
+TABLES ysticksys_ticket_header.
 PARAMETERS p_ticsy TYPE ytticksys_ticsy-ticsy_id OBLIGATORY VALUE CHECK.
-SELECT-OPTIONS s_ticket FOR ysaddict_ticket_header-ticket_id OBLIGATORY NO INTERVALS.
+SELECT-OPTIONS s_ticket FOR ysticksys_ticket_header-ticket_id OBLIGATORY NO INTERVALS.
 
 
 CLASS main DEFINITION.
@@ -10,24 +10,23 @@ CLASS main DEFINITION.
     CLASS-METHODS run.
 
   PRIVATE SECTION.
-    TYPES ticket_header_list TYPE STANDARD TABLE OF ysaddict_ticket_header
-          WITH KEY ticket_id.
+    TYPES ticket_header_list TYPE STANDARD TABLE OF ysticksys_ticket_header WITH KEY ticket_id.
 
-    constants msgid type symsgid value 'YTICKSYS'.
+    CONSTANTS msgid TYPE symsgid VALUE 'YTICKSYS'.
     CONSTANTS cprog TYPE sycprog VALUE 'YP_TICKSYS_TICKET_LIST'.
 
     CONSTANTS: BEGIN OF table,
-                 ticket_header TYPE tabname VALUE 'YSADDICT_TICKET_HEADER',
+                 ticket_header TYPE tabname VALUE 'YSTICKSYS_TICKET_HEADER',
                END OF table.
 
     CLASS-DATA ticketing_system TYPE REF TO ycl_ticksys_ticketing_system.
-    CLASS-DATA log TYPE REF TO ycl_simbal.
-    CLASS-DATA ticket_headers TYPE ticket_header_list.
+    CLASS-DATA log              TYPE REF TO ycl_simbal.
+    CLASS-DATA ticket_headers   TYPE ticket_header_list.
 
     CLASS-METHODS create_objects RAISING ycx_addict_table_content.
     CLASS-METHODS read_tickets.
-    CLASS-METHODS display_msg RAISING ycx_simbal_log.
-    CLASS-METHODS display_alv RAISING ycx_addict_alv.
+    CLASS-METHODS display_msg    RAISING ycx_simbal_log.
+    CLASS-METHODS display_alv    RAISING ycx_addict_alv.
 ENDCLASS.
 
 
@@ -48,7 +47,6 @@ CLASS main IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-
   METHOD create_objects.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Creates objects to be used
@@ -56,7 +54,6 @@ CLASS main IMPLEMENTATION.
     main=>ticketing_system = ycl_ticksys_ticketing_system=>get_instance( VALUE #( ticsy_id = p_ticsy ) ).
     main=>log = main=>ticketing_system->create_log( ).
   ENDMETHOD.
-
 
   METHOD read_tickets.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -68,28 +65,25 @@ CLASS main IMPLEMENTATION.
                  TO main=>ticket_headers.
 
         CATCH cx_root INTO DATA(ticket_error).
-          main=>log->add_t100_msg(
-              msgid = main=>msgid
-              msgno = '002'
-              msgty = ycl_simbal=>msgty-error
-              msgv1 = <ticket>-low ).
+          main=>log->add_t100_msg( msgid = main=>msgid
+                                   msgno = '002'
+                                   msgty = ycl_simbal=>msgty-error
+                                   msgv1 = <ticket>-low ).
 
           main=>log->add_exception( ticket_error ).
       ENDTRY.
     ENDLOOP.
   ENDMETHOD.
 
-
   METHOD display_msg.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Displays messages produced during execution
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    CHECK main=>log IS NOT INITIAL AND
-          main=>log->get_message_count( ) IS NOT INITIAL.
+    CHECK     main=>log IS NOT INITIAL
+          AND main=>log->get_message_count( ) IS NOT INITIAL.
 
     NEW ycl_simbal_gui( main=>log )->show_light_popup( ).
   ENDMETHOD.
-
 
   METHOD display_alv.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""

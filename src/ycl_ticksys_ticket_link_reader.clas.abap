@@ -1,12 +1,12 @@
 CLASS ycl_ticksys_ticket_link_reader DEFINITION
   PUBLIC
   FINAL
-  CREATE PRIVATE .
+  CREATE PRIVATE.
 
   PUBLIC SECTION.
     TYPES: BEGIN OF input_dict,
-             ticsy_id          TYPE yd_addict_ticsy_id,
-             tickets           TYPE yif_addict_ticketing_system=>ticket_id_list,
+             ticsy_id          TYPE yd_ticksys_ticsy_id,
+             tickets           TYPE yif_ticksys_ticketing_system=>ticket_id_list,
              find_links        TYPE abap_bool,
              find_parent_child TYPE abap_bool,
              link_self         TYPE abap_bool,
@@ -14,8 +14,8 @@ CLASS ycl_ticksys_ticket_link_reader DEFINITION
            END OF input_dict.
 
     TYPES: BEGIN OF nested_dict,
-             master TYPE yd_addict_ticket_id,
-             linked TYPE yif_addict_ticketing_system=>ticket_id_list,
+             master TYPE yd_ticksys_ticket_id,
+             linked TYPE yif_ticksys_ticketing_system=>ticket_id_list,
            END OF nested_dict,
 
            nested_set TYPE HASHED TABLE OF nested_dict
@@ -23,16 +23,15 @@ CLASS ycl_ticksys_ticket_link_reader DEFINITION
 
     CLASS-METHODS execute
       IMPORTING !input  TYPE input_dict
-      EXPORTING !flat   TYPE yif_addict_ticketing_system=>ticket_id_list
+      EXPORTING flat    TYPE yif_ticksys_ticketing_system=>ticket_id_list
                 !nested TYPE nested_set
       RAISING   ycx_addict_class_method.
 
-  PROTECTED SECTION.
   PRIVATE SECTION.
     TYPES: BEGIN OF cache_dict,
-             ticket_id      TYPE yd_addict_ticket_id,
+             ticket_id      TYPE yd_ticksys_ticket_id,
              max_link_level TYPE i,
-             linked         TYPE yif_addict_ticketing_system=>ticket_id_list,
+             linked         TYPE yif_ticksys_ticketing_system=>ticket_id_list,
            END OF cache_dict,
 
            cache_set TYPE HASHED TABLE OF cache_dict
@@ -49,12 +48,12 @@ CLASS ycl_ticksys_ticket_link_reader DEFINITION
 
     CLASS-DATA cache TYPE cache_set.
 
-    DATA input TYPE input_dict.
-    DATA flat TYPE yif_addict_ticketing_system=>ticket_id_list.
-    DATA nested TYPE nested_set.
+    DATA input         TYPE input_dict.
+    DATA flat          TYPE yif_ticksys_ticketing_system=>ticket_id_list.
+    DATA nested        TYPE nested_set.
 
     DATA ticketing_sys TYPE REF TO ycl_ticksys_ticketing_system.
-    DATA ticketing_imp TYPE REF TO yif_addict_ticketing_system.
+    DATA ticketing_imp TYPE REF TO yif_ticksys_ticketing_system.
 
     METHODS constructor
       IMPORTING !input TYPE input_dict
@@ -64,39 +63,55 @@ CLASS ycl_ticksys_ticket_link_reader DEFINITION
       RAISING ycx_addict_method_parameter
               ycx_addict_table_content.
 
-    METHODS read_tickets RAISING ycx_addict_ticketing_system.
+    METHODS read_tickets RAISING ycx_ticksys_ticketing_system.
 
     METHODS find_nested_links
-      IMPORTING !yin        TYPE yd_addict_ticket_id
-      CHANGING  !links      TYPE yif_addict_ticketing_system=>ticket_id_list
-                !link_level TYPE i
-      RAISING   ycx_addict_ticketing_system.
+      IMPORTING yin        TYPE yd_ticksys_ticket_id
+      CHANGING  links      TYPE yif_ticksys_ticketing_system=>ticket_id_list
+                link_level TYPE i
+      RAISING   ycx_ticksys_ticketing_system.
 
     METHODS append_link
-      IMPORTING !yin        TYPE yd_addict_ticket_id
-                !yang       TYPE yd_addict_ticket_id
-      CHANGING  !links      TYPE yif_addict_ticketing_system=>ticket_id_list
-                !link_level TYPE i
-      RAISING   ycx_addict_ticketing_system.
+      IMPORTING yin        TYPE yd_ticksys_ticket_id
+                yang       TYPE yd_ticksys_ticket_id
+      CHANGING  links      TYPE yif_ticksys_ticketing_system=>ticket_id_list
+                link_level TYPE i
+      RAISING   ycx_ticksys_ticketing_system.
 
     METHODS link_self.
     METHODS build_flat.
 ENDCLASS.
 
 
-
 CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
-  METHOD execute.
-    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " End point
+  METHOD append_link.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    CLEAR: flat, nested.
-    DATA(reader) = NEW ycl_ticksys_ticket_link_reader( input ).
+    " Appends the given link & recursively keeps seeking
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    IF    yang IS INITIAL
+       OR yang  = yin
+       OR line_exists( links[ table_line = yang ] ).
+      RETURN.
+    ENDIF.
 
-    flat    = reader->flat.
-    nested  = reader->nested.
+    APPEND yang TO links.
+
+    find_nested_links( EXPORTING yin        = yang
+                       CHANGING  links      = links
+                                 link_level = link_level ).
   ENDMETHOD.
 
+  METHOD build_flat.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Builds the flat list
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    LOOP AT me->nested ASSIGNING FIELD-SYMBOL(<nest>).
+      APPEND LINES OF <nest>-linked TO me->flat.
+    ENDLOOP.
+
+    SORT me->flat.
+    DELETE ADJACENT DUPLICATES FROM me->flat.
+  ENDMETHOD.
 
   METHOD constructor.
     """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -112,70 +127,24 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
       CATCH ycx_addict_class_method INTO DATA(method_error).
         RAISE EXCEPTION method_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_addict_class_method
-          EXPORTING
-            textid   = ycx_addict_class_method=>unexpected_error
-            previous = diaper
-            class    = CONV #( ycl_addict_class=>get_class_name( me ) )
-            method   = me->method-constructor.
+        RAISE EXCEPTION NEW ycx_addict_class_method( textid   = ycx_addict_class_method=>unexpected_error
+                                                     previous = diaper
+                                                     class    = CONV #( ycl_addict_class=>get_class_name( me ) )
+                                                     method   = me->method-constructor ).
     ENDTRY.
   ENDMETHOD.
 
-
-  METHOD welcome_input.
+  METHOD execute.
+    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " End point
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Process and cleanse input values
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    DELETE me->input-tickets WHERE table_line IS INITIAL.
-    SORT me->input-tickets.
-    DELETE ADJACENT DUPLICATES FROM me->input-tickets.
+    CLEAR: flat,
+           nested.
+    DATA(reader) = NEW ycl_ticksys_ticket_link_reader( input ).
 
-    IF me->input-ticsy_id IS INITIAL.
-      RAISE EXCEPTION TYPE ycx_addict_method_parameter
-        EXPORTING
-          textid      = ycx_addict_method_parameter=>param_value_initial
-          class_name  = CONV #( ycl_addict_class=>get_class_name( me ) )
-          method_name = me->method-welcome_input
-          param_name  = CONV #( me->field-ticsy_id ).
-    ENDIF.
-
-    me->ticketing_sys = ycl_ticksys_ticketing_system=>get_instance( CORRESPONDING #( me->input ) ).
-    me->ticketing_imp = ticketing_sys->implementation.
+    flat   = reader->flat.
+    nested = reader->nested.
   ENDMETHOD.
-
-
-  METHOD read_tickets.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Reads tickets to build link list
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    LOOP AT me->input-tickets ASSIGNING FIELD-SYMBOL(<ticket_id>).
-      ASSIGN me->cache[ KEY primary_key COMPONENTS
-                        ticket_id      = <ticket_id>
-                        max_link_level = me->input-max_link_level
-                      ] TO FIELD-SYMBOL(<cache>).
-
-      IF sy-subrc <> 0.
-        DATA(new_cache) = VALUE cache_dict(
-            ticket_id      = <ticket_id>
-            max_link_level = me->input-max_link_level ).
-
-        DATA(link_level) = 0.
-
-        find_nested_links(
-          EXPORTING yin        = <ticket_id>
-          CHANGING  links      = new_cache-linked
-                    link_level = link_level  ).
-
-        SORT new_cache-linked.
-        INSERT new_cache INTO TABLE me->cache ASSIGNING <cache>.
-      ENDIF.
-
-      INSERT VALUE #( master = <ticket_id>
-                      linked = <cache>-linked
-                    ) INTO TABLE me->nested.
-    ENDLOOP.
-  ENDMETHOD.
-
 
   METHOD find_nested_links.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -184,9 +153,9 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
     link_level = link_level + 1.
 
     " Linked tickets """"""""""""""""""""""""""""""""""""""""""""""""
-    IF me->input-find_links = abap_true AND
-       me->input-max_link_level IS NOT INITIAL AND
-       me->input-max_link_level >= link_level.
+    IF     me->input-find_links      = abap_true
+       AND me->input-max_link_level IS NOT INITIAL
+       AND me->input-max_link_level >= link_level.
 
       DATA(ticket_links) = me->ticketing_imp->get_linked_tickets( yin ).
 
@@ -200,16 +169,16 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
 
     " Parent - child relations """"""""""""""""""""""""""""""""""""""
     IF me->input-find_parent_child = abap_true.
-      data(ticket) = me->ticketing_imp->get_ticket_header( yin ).
+      DATA(ticket) = me->ticketing_imp->get_ticket_header( yin ).
 
-        append_link( EXPORTING yin        = yin
-                               yang       = ticket-parent_ticket_id
-                     CHANGING  links      = links
-                               link_level = link_level ).
+      append_link( EXPORTING yin        = yin
+                             yang       = ticket-parent_ticket_id
+                   CHANGING  links      = links
+                             link_level = link_level ).
 
-      data(sub_tickets) = me->ticketing_imp->get_sub_tickets( yin ).
+      DATA(sub_tickets) = me->ticketing_imp->get_sub_tickets( yin ).
 
-      loop at sub_tickets assigning field-symbol(<sub_ticket>).
+      LOOP AT sub_tickets ASSIGNING FIELD-SYMBOL(<sub_ticket>).
         append_link( EXPORTING yin        = yin
                                yang       = <sub_ticket>
                      CHANGING  links      = links
@@ -220,26 +189,6 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
     " Closure """""""""""""""""""""""""""""""""""""""""""""""""""""""
     link_level = link_level - 1.
   ENDMETHOD.
-
-
-  METHOD append_link.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Appends the given link & recursively keeps seeking
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    IF yang IS INITIAL OR
-       yang = yin OR
-       line_exists( links[ table_line = yang ] ).
-      RETURN.
-    ENDIF.
-
-    APPEND yang TO links.
-
-    find_nested_links(
-      EXPORTING yin        = yang
-      CHANGING  links      = links
-                link_level = link_level ).
-  ENDMETHOD.
-
 
   METHOD link_self.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -253,16 +202,51 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
+  METHOD read_tickets.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Reads tickets to build link list
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    LOOP AT me->input-tickets ASSIGNING FIELD-SYMBOL(<ticket_id>).
+      ASSIGN me->cache[ KEY primary_key COMPONENTS ticket_id      = <ticket_id>
+                                                   max_link_level = me->input-max_link_level ]
+             TO FIELD-SYMBOL(<cache>).
 
-  METHOD build_flat.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Builds the flat list
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    LOOP AT me->nested ASSIGNING FIELD-SYMBOL(<nest>).
-      APPEND LINES OF <nest>-linked TO me->flat.
+      IF sy-subrc <> 0.
+        DATA(new_cache) = VALUE cache_dict( ticket_id      = <ticket_id>
+                                            max_link_level = me->input-max_link_level ).
+
+        DATA(link_level) = 0.
+
+        find_nested_links( EXPORTING yin        = <ticket_id>
+                           CHANGING  links      = new_cache-linked
+                                     link_level = link_level  ).
+
+        SORT new_cache-linked.
+        INSERT new_cache INTO TABLE me->cache ASSIGNING <cache>.
+      ENDIF.
+
+      INSERT VALUE #( master = <ticket_id>
+                      linked = <cache>-linked )
+             INTO TABLE me->nested.
     ENDLOOP.
+  ENDMETHOD.
 
-    SORT me->flat.
-    DELETE ADJACENT DUPLICATES FROM me->flat.
+  METHOD welcome_input.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Process and cleanse input values
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    DELETE me->input-tickets WHERE table_line IS INITIAL.
+    SORT me->input-tickets.
+    DELETE ADJACENT DUPLICATES FROM me->input-tickets.
+
+    IF me->input-ticsy_id IS INITIAL.
+      RAISE EXCEPTION NEW ycx_addict_method_parameter( textid      = ycx_addict_method_parameter=>param_value_initial
+                                                       class_name  = CONV #( ycl_addict_class=>get_class_name( me ) )
+                                                       method_name = me->method-welcome_input
+                                                       param_name  = CONV #( me->field-ticsy_id ) ).
+    ENDIF.
+
+    me->ticketing_sys = ycl_ticksys_ticketing_system=>get_instance( CORRESPONDING #( me->input ) ).
+    me->ticketing_imp = ticketing_sys->implementation.
   ENDMETHOD.
 ENDCLASS.

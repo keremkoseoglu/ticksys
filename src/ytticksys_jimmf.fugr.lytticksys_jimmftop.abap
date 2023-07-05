@@ -1,4 +1,3 @@
-* regenerated at 17.01.2022 10:24:41
 FUNCTION-POOL YTTICKSYS_JIMMF            MESSAGE-ID SV.
 
 * INCLUDE LYTTICKSYS_JIMMFD...               " Local class definition

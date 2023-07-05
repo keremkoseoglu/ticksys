@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    program for:   TABLEFRAME_YTTICKSYS_TICSY
-*   generation date: 20.11.2020 at 10:19:24
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 FUNCTION TABLEFRAME_YTTICKSYS_TICSY    .
 

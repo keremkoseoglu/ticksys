@@ -1,79 +1,74 @@
-class YCX_TICKSYS_TICKET definition
-  public
-  inheriting from CX_STATIC_CHECK
-  create public .
+CLASS ycx_ticksys_ticket DEFINITION
+  PUBLIC
+  INHERITING FROM cx_static_check
+  CREATE PUBLIC.
 
-public section.
+  PUBLIC SECTION.
+    INTERFACES if_t100_dyn_msg.
+    INTERFACES if_t100_message.
 
-  interfaces IF_T100_DYN_MSG .
-  interfaces IF_T100_MESSAGE .
+    CONSTANTS:
+      BEGIN OF validation_error,
+        msgid TYPE symsgid      VALUE 'YTICKSYS',
+        msgno TYPE symsgno      VALUE '017',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE 'TICKET_ID',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF validation_error.
+    CONSTANTS:
+      BEGIN OF no_update_rule_found,
+        msgid TYPE symsgid      VALUE 'YTICKSYS',
+        msgno TYPE symsgno      VALUE '000',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE 'TICKET_ID',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF no_update_rule_found.
+    CONSTANTS:
+      BEGIN OF status_update_error,
+        msgid TYPE symsgid      VALUE 'YTICKSYS',
+        msgno TYPE symsgno      VALUE '001',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE 'TICKET_ID',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF status_update_error.
+    CONSTANTS:
+      BEGIN OF ticket_not_found,
+        msgid TYPE symsgid      VALUE 'YTICKSYS',
+        msgno TYPE symsgno      VALUE '005',
+        attr1 TYPE scx_attrname VALUE 'TICSY_ID',
+        attr2 TYPE scx_attrname VALUE 'TICKET_ID',
+        attr3 TYPE scx_attrname VALUE '',
+        attr4 TYPE scx_attrname VALUE '',
+      END OF ticket_not_found.
 
-  constants:
-    begin of VALIDATION_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '017',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value 'TICKET_ID',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of VALIDATION_ERROR .
-  constants:
-    begin of NO_UPDATE_RULE_FOUND,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '000',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value 'TICKET_ID',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of NO_UPDATE_RULE_FOUND .
-  constants:
-    begin of STATUS_UPDATE_ERROR,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '001',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value 'TICKET_ID',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of STATUS_UPDATE_ERROR .
-  constants:
-    begin of TICKET_NOT_FOUND,
-      msgid type symsgid value 'YTICKSYS',
-      msgno type symsgno value '005',
-      attr1 type scx_attrname value 'TICSY_ID',
-      attr2 type scx_attrname value 'TICKET_ID',
-      attr3 type scx_attrname value '',
-      attr4 type scx_attrname value '',
-    end of TICKET_NOT_FOUND .
-  data TICSY_ID type YD_TICKSYS_TICSY_ID .
-  data TICKET_ID type YD_ADDICT_TICKET_ID .
+    DATA ticsy_id  TYPE yd_ticksys_ticsy_id.
+    DATA ticket_id TYPE yd_ticksys_ticket_id.
 
-  methods CONSTRUCTOR
-    importing
-      !TEXTID like IF_T100_MESSAGE=>T100KEY optional
-      !PREVIOUS like PREVIOUS optional
-      !TICSY_ID type YD_TICKSYS_TICSY_ID optional
-      !TICKET_ID type YD_ADDICT_TICKET_ID optional .
+    METHODS constructor
+      IMPORTING textid    LIKE if_t100_message=>t100key OPTIONAL
+                !previous LIKE previous                 OPTIONAL
+                ticsy_id  TYPE yd_ticksys_ticsy_id      OPTIONAL
+                ticket_id TYPE yd_ticksys_ticket_id     OPTIONAL.
+
   PROTECTED SECTION.
+
   PRIVATE SECTION.
 ENDCLASS.
 
 
-
-CLASS YCX_TICKSYS_TICKET IMPLEMENTATION.
-
-
-  method CONSTRUCTOR.
-CALL METHOD SUPER->CONSTRUCTOR
-EXPORTING
-PREVIOUS = PREVIOUS
-.
-me->TICSY_ID = TICSY_ID .
-me->TICKET_ID = TICKET_ID .
-clear me->textid.
-if textid is initial.
-  IF_T100_MESSAGE~T100KEY = IF_T100_MESSAGE=>DEFAULT_TEXTID.
-else.
-  IF_T100_MESSAGE~T100KEY = TEXTID.
-endif.
-  endmethod.
+CLASS ycx_ticksys_ticket IMPLEMENTATION.
+  METHOD constructor ##ADT_SUPPRESS_GENERATION.
+    super->constructor( previous = previous ).
+    me->ticsy_id  = ticsy_id.
+    me->ticket_id = ticket_id.
+    CLEAR me->textid.
+    IF textid IS INITIAL.
+      if_t100_message~t100key = if_t100_message=>default_textid.
+    ELSE.
+      if_t100_message~t100key = textid.
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.

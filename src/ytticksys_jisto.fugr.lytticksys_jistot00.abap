@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    view related data declarations
-*   generation date: 21.11.2020 at 10:41:08
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 *...processing: YTTICKSYS_JISTO.................................*
 DATA:  BEGIN OF STATUS_YTTICKSYS_JISTO               .   "state vector

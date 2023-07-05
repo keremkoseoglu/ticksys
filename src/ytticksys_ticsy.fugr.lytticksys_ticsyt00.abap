@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    view related data declarations
-*   generation date: 20.11.2020 at 10:19:24
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 *...processing: YTTICKSYS_TICSY.................................*
 DATA:  BEGIN OF STATUS_YTTICKSYS_TICSY               .   "state vector

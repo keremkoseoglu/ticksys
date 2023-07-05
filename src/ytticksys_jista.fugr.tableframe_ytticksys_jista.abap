@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    program for:   TABLEFRAME_YTTICKSYS_JISTA
-*   generation date: 08.11.2020 at 16:44:30
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 FUNCTION TABLEFRAME_YTTICKSYS_JISTA    .
 

@@ -47,6 +47,12 @@
     <T100>
      <SPRSL>T</SPRSL>
      <ARBGB>YTICKSYS</ARBGB>
+     <MSGNR>009</MSGNR>
+     <TEXT>&amp;1 Ticket&apos;ı &amp;2 statüsüne getirilemez (veya tanım eksikliği var)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>T</SPRSL>
+     <ARBGB>YTICKSYS</ARBGB>
      <MSGNR>011</MSGNR>
      <TEXT>Ticketing sistemi hatası</TEXT>
     </T100>

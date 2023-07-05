@@ -1,7 +1,5 @@
 *---------------------------------------------------------------------*
 *    view related data declarations
-*   generation date: 30.10.2020 at 18:07:52
-*   view maintenance generator version: #001407#
 *---------------------------------------------------------------------*
 *...processing: YTTICKSYS_JIDEF.................................*
 DATA:  BEGIN OF STATUS_YTTICKSYS_JIDEF               .   "state vector
