@@ -187,6 +187,22 @@
   </tr>
 </table>
 
+<p>In some cases, you may want to replace values in Jira's JSON response. Typical case: Shortened number format (3.06E8) may not be supported by SAP's JSON parser. In such a case, you can use the table <strong>YTTICKSYS_JIJRR</strong> to replace those pesky values.</p>
+<table>
+  <tr>
+    <td><b>REPLACE_ORDER</b></td>
+    <td>(Order of rule)</td>
+  </tr>
+  <tr>
+    <td><b>JSON_REGEX</b></td>
+    <td>Regex value to be replaced. Sample: .customfield_15255.:*\d\.\d\dE\d,</td>
+  </tr>
+  <tr>
+    <td><b>NEW_JSON_VAL</b></td>
+    <td>(Value to placed instead of RegEx. Leave empty to remove the RegEx value)</td>
+  </tr>
+</table>
+
 <p>Check the menu <strong>YTICKSYS</strong> for any further configuration which may have been missed in this document.</p>
               
             </div>
