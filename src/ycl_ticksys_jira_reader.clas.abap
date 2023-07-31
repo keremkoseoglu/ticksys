@@ -67,6 +67,9 @@ CLASS ycl_ticksys_jira_reader DEFINITION
 
            bin_list TYPE STANDARD TABLE OF bin_dict WITH EMPTY KEY.
 
+    TYPES json_regex_replacement_list TYPE SORTED TABLE OF ytticksys_jijrr
+          WITH UNIQUE KEY primary_key COMPONENTS replace_order.
+
     CONSTANTS json_null TYPE text4 VALUE 'null'.
 
     CONSTANTS: BEGIN OF http_return,
@@ -75,9 +78,11 @@ CLASS ycl_ticksys_jira_reader DEFINITION
 
     CLASS-DATA singleton TYPE REF TO ycl_ticksys_jira_reader.
 
-    DATA defs         TYPE REF TO ycl_ticksys_jira_def.
-    DATA issue_cache  TYPE issue_set.
-    DATA status_cache TYPE status_set.
+    DATA: defs                      TYPE REF TO ycl_ticksys_jira_def,
+          issue_cache               TYPE issue_set,
+          status_cache              TYPE status_set,
+          lazy_json_regex_reps      TYPE json_regex_replacement_list,
+          lazy_json_regex_reps_read TYPE abap_bool.
 
     METHODS constructor RAISING ycx_addict_table_content.
 
@@ -85,6 +90,12 @@ CLASS ycl_ticksys_jira_reader DEFINITION
       IMPORTING url            TYPE string
       RETURNING VALUE(results) TYPE /ui5/cl_json_parser=>t_entry_map
       RAISING   ycx_ticksys_ticketing_system.
+
+    METHODS lazy_get_json_regex_reps
+      RETURNING VALUE(result) TYPE REF TO json_regex_replacement_list.
+
+    METHODS replace_regex_in_json
+      CHANGING VALUE(json) TYPE string.
 ENDCLASS.
 
 
@@ -395,6 +406,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                               ticsy_id = ycl_ticksys_jira=>ticsy_id ).
     ENDIF.
 
+    replace_regex_in_json( CHANGING json = json_response ).
     DATA(parser) = NEW /ui5/cl_json_parser( ).
     parser->parse( json_response ).
     results = parser->m_entries.
@@ -412,5 +424,35 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                 |{ COND #( WHEN max_results IS NOT INITIAL THEN |&maxResults={ max_results }| ) }|.
 
     results = http_get_jira_rest_api( url ).
+  ENDMETHOD.
+
+  METHOD lazy_get_json_regex_reps.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Caches & returns values from table ytticksys_jijrr
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    IF me->lazy_json_regex_reps_read = abap_false.
+      SELECT * FROM ytticksys_jijrr
+               WHERE json_regex <> @space
+               ORDER BY replace_order
+               INTO  CORRESPONDING FIELDS OF TABLE @me->lazy_json_regex_reps.
+
+      me->lazy_json_regex_reps_read = abap_true.
+    ENDIF.
+
+    result = REF #( me->lazy_json_regex_reps ).
+  ENDMETHOD.
+
+  METHOD replace_regex_in_json.
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Executes regex replacements in table ytticksys_jijrr
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    CHECK json IS NOT INITIAL.
+
+    DATA(replacements) = lazy_get_json_regex_reps( ).
+
+    LOOP AT replacements->* REFERENCE INTO DATA(replacement).
+      REPLACE ALL OCCURRENCES OF REGEX replacement->json_regex
+              IN json WITH replacement->new_json_val IGNORING CASE.
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
