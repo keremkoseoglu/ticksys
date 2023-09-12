@@ -84,11 +84,11 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                                         tabname  = ycl_ticksys_jira_def=>table-jira_transitions
                                         objectid = |{ current_status }-{ status_id }| ).
 
-        RAISE EXCEPTION NEW ycx_ticksys_undefined_status_c(
-                                textid    = ycx_ticksys_undefined_status_c=>ticket_cant_be_set
-                                previous  = table_content_error
-                                ticket_id = ticket_id
-                                status_id = status_id ).
+        RAISE EXCEPTION TYPE ycx_ticksys_undefined_status_c
+          EXPORTING textid    = ycx_ticksys_undefined_status_c=>ticket_cant_be_set
+                    previous  = table_content_error
+                    ticket_id = ticket_id
+                    status_id = status_id.
     ENDTRY.
   ENDMETHOD.
 
@@ -112,7 +112,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         result = abap_false.
 
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -144,8 +145,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
     TRY.
         IF me->defs->status_orders IS INITIAL.
-          RAISE EXCEPTION NEW ycx_addict_table_content( textid  = ycx_addict_table_content=>table_empty
-                                                        tabname = ycl_ticksys_jira_def=>table-status_order ).
+          RAISE EXCEPTION TYPE ycx_addict_table_content
+            EXPORTING textid  = ycx_addict_table_content=>table_empty
+                      tabname = ycl_ticksys_jira_def=>table-status_order.
         ENDIF.
 
         DATA(unique_statuses) = statuses.
@@ -167,8 +169,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
                  TO FIELD-SYMBOL(<status_master>).
 
           IF sy-subrc <> 0.
-            RAISE EXCEPTION NEW ycx_ticksys_ticket_status( textid    = ycx_ticksys_ticket_status=>invalid_status_id
-                                                           status_id = <status> ).
+            RAISE EXCEPTION TYPE ycx_ticksys_ticket_status
+              EXPORTING textid    = ycx_ticksys_ticket_status=>invalid_status_id
+                        status_id = <status>.
           ENDIF.
 
           LOOP AT me->defs->status_orders ASSIGNING FIELD-SYMBOL(<status_order>).
@@ -187,9 +190,9 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(system_error).
         RAISE EXCEPTION system_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                                textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
-                                previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
+                    previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -203,7 +206,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -217,7 +221,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -231,7 +236,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -245,7 +251,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(system_error).
         RAISE EXCEPTION system_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -298,7 +305,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -312,7 +320,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -329,7 +338,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -366,13 +376,15 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_code) = response->get_header_field( '~status_code' ).
 
         IF http_code <> me->status_code-ok.
-          RAISE EXCEPTION NEW ycx_ticksys_assignee_update( ticket_id = ticket_id ).
+          RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+            EXPORTING ticket_id = ticket_id.
         ENDIF.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -396,13 +408,15 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
           RETURN.
         ENDLOOP.
 
-        RAISE EXCEPTION NEW ycx_ticksys_assignee_update( textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
-                                                         ticket_id = ticket_id ).
+        RAISE EXCEPTION TYPE ycx_ticksys_assignee_update
+          EXPORTING textid    = ycx_ticksys_assignee_update=>new_assignee_not_found
+                    ticket_id = ticket_id.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 
@@ -436,17 +450,18 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_code) = response->get_header_field( '~status_code' ).
 
         IF http_code <> status_code-ok.
-          RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                                  textid    = ycx_ticksys_ticketing_system=>status_update_error
-                                  ticsy_id  = me->ticsy_id
-                                  ticket_id = ticket_id
-                                  status_id = status_id ).
+          RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+            EXPORTING textid    = ycx_ticksys_ticketing_system=>status_update_error
+                      ticsy_id  = me->ticsy_id
+                      ticket_id = ticket_id
+                      status_id = status_id.
         ENDIF.
 
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 ENDCLASS.

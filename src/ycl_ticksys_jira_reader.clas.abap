@@ -142,9 +142,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                               OTHERS             = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                              textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
-                              ticsy_id = ycl_ticksys_jira=>ticsy_id ).
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
+                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     http_client->request->set_version( if_http_request=>co_protocol_version_1_0 ).
@@ -194,9 +194,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                                      ticsy_id  = ycl_ticksys_jira=>ticsy_id
                                                      ticket_id = ticket_id ).
 
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                                textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
-                                previous = ticket_error ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
+                    previous = ticket_error.
       ENDIF.
 
       " Read values """""""""""""""""""""""""""""""""""""""""""""""""
@@ -357,8 +357,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                   OTHERS                     = 5 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( textid   = ycx_ticksys_ticketing_system=>http_request_error
-                                                        ticsy_id = ycl_ticksys_jira=>ticsy_id ).
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_request_error
+                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     http_client->receive( EXCEPTIONS http_communication_failure = 1
@@ -367,8 +368,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                      OTHERS                     = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( textid   = ycx_ticksys_ticketing_system=>http_response_error
-                                                        ticsy_id = ycl_ticksys_jira=>ticsy_id ).
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_response_error
+                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     http_client->response->get_status( IMPORTING code = DATA(rc) ).
@@ -376,10 +378,10 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     http_client->close( ).
 
     IF rc <> me->http_return-ok.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                              textid           = ycx_ticksys_ticketing_system=>unexpected_http_status
-                              ticsy_id         = ycl_ticksys_jira=>ticsy_id
-                              http_status_code = rc ).
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING textid           = ycx_ticksys_ticketing_system=>unexpected_http_status
+                  ticsy_id         = ycl_ticksys_jira=>ticsy_id
+                  http_status_code = rc.
     ENDIF.
 
     " Parse """""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -401,9 +403,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                  OTHERS       = 2.
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                              textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
-                              ticsy_id = ycl_ticksys_jira=>ticsy_id ).
+      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
+                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
     ENDIF.
 
     replace_regex_in_json( CHANGING json = json_response ).
@@ -431,7 +433,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     " Caches & returns values from table ytticksys_jijrr
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     IF me->lazy_json_regex_reps_read = abap_false.
-      SELECT * FROM ytticksys_jijrr
+      SELECT * FROM ytticksys_jijrr "#EC CI_NOFIELD
                WHERE json_regex <> @space
                ORDER BY replace_order
                INTO  CORRESPONDING FIELDS OF TABLE @me->lazy_json_regex_reps.

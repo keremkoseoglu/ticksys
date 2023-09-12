@@ -85,7 +85,8 @@ CLASS ycl_ticksys_jira_gtrttc IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
+        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
+          EXPORTING previous = diaper.
     ENDTRY.
   ENDMETHOD.
 

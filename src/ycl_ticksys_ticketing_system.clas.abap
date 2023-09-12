@@ -83,16 +83,18 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
     TRY.
         me->def = me->ticketing_systems[ KEY primary_key COMPONENTS ticsy_id = key-ticsy_id ].
       CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
-        RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
-                                                      previous = itab_error
-                                                      tabname  = table-def
-                                                      objectid = |{ key-ticsy_id }| ).
+        RAISE EXCEPTION TYPE ycx_addict_table_content
+          EXPORTING textid   = ycx_addict_table_content=>no_entry_for_objectid
+                    previous = itab_error
+                    tabname  = table-def
+                    objectid = |{ key-ticsy_id }|.
     ENDTRY.
 
     IF me->def-ticsy_imp_class IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>invalid_entry
-                                                    tabname  = table-def
-                                                    objectid = |{ key-ticsy_id }| ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid   = ycx_addict_table_content=>invalid_entry
+                  tabname  = table-def
+                  objectid = |{ key-ticsy_id }|.
     ENDIF.
 
     TRY.
@@ -100,9 +102,10 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
         me->implementation = CAST #( obj ).
 
       CATCH cx_root INTO DATA(implementation_error).
-        RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>invalid_entry
-                                                      tabname  = table-def
-                                                      objectid = |{ key-ticsy_id }| ).
+        RAISE EXCEPTION TYPE ycx_addict_table_content
+          EXPORTING textid   = ycx_addict_table_content=>invalid_entry
+                    tabname  = table-def
+                    objectid = |{ key-ticsy_id }|.
     ENDTRY.
   ENDMETHOD.
 
@@ -111,17 +114,19 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
     " Creates & returns a new log object
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     IF me->def-bal_object IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = me->table-def
-                                                    objectid  = CONV #( me->def-ticsy_id )
-                                                    fieldname = me->field-bal_object ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid    = ycx_addict_table_content=>entry_field_empty
+                  tabname   = me->table-def
+                  objectid  = CONV #( me->def-ticsy_id )
+                  fieldname = me->field-bal_object.
     ENDIF.
 
     IF me->def-bal_subobject IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = me->table-def
-                                                    objectid  = CONV #( me->def-ticsy_id )
-                                                    fieldname = me->field-bal_subobject ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid    = ycx_addict_table_content=>entry_field_empty
+                  tabname   = me->table-def
+                  objectid  = CONV #( me->def-ticsy_id )
+                  fieldname = me->field-bal_subobject.
     ENDIF.
 
     TRY.
@@ -129,10 +134,11 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
                               subobject = me->def-bal_subobject ).
 
       CATCH cx_root INTO DATA(simbal_error).
-        RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>invalid_entry
-                                                      previous = simbal_error
-                                                      tabname  = me->table-def
-                                                      objectid = CONV #( me->def-ticsy_id ) ).
+        RAISE EXCEPTION TYPE ycx_addict_table_content
+          EXPORTING textid   = ycx_addict_table_content=>invalid_entry
+                    previous = simbal_error
+                    tabname  = me->table-def
+                    objectid = CONV #( me->def-ticsy_id ).
     ENDTRY.
   ENDMETHOD.
 

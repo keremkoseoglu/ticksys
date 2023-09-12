@@ -127,10 +127,11 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
       CATCH ycx_addict_class_method INTO DATA(method_error).
         RAISE EXCEPTION method_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION NEW ycx_addict_class_method( textid   = ycx_addict_class_method=>unexpected_error
-                                                     previous = diaper
-                                                     class    = CONV #( ycl_addict_class=>get_class_name( me ) )
-                                                     method   = me->method-constructor ).
+        RAISE EXCEPTION TYPE ycx_addict_class_method
+          EXPORTING textid   = ycx_addict_class_method=>unexpected_error
+                    previous = diaper
+                    class    = CONV #( ycl_addict_class=>get_class_name( me ) )
+                    method   = me->method-constructor.
     ENDTRY.
   ENDMETHOD.
 
@@ -240,10 +241,11 @@ CLASS ycl_ticksys_ticket_link_reader IMPLEMENTATION.
     DELETE ADJACENT DUPLICATES FROM me->input-tickets.
 
     IF me->input-ticsy_id IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_method_parameter( textid      = ycx_addict_method_parameter=>param_value_initial
-                                                       class_name  = CONV #( ycl_addict_class=>get_class_name( me ) )
-                                                       method_name = me->method-welcome_input
-                                                       param_name  = CONV #( me->field-ticsy_id ) ).
+      RAISE EXCEPTION TYPE ycx_addict_method_parameter
+        EXPORTING textid      = ycx_addict_method_parameter=>param_value_initial
+                  class_name  = CONV #( ycl_addict_class=>get_class_name( me ) )
+                  method_name = me->method-welcome_input
+                  param_name  = CONV #( me->field-ticsy_id ).
     ENDIF.
 
     me->ticketing_sys = ycl_ticksys_ticketing_system=>get_instance( CORRESPONDING #( me->input ) ).

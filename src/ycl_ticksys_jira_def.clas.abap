@@ -52,30 +52,34 @@ CLASS ycl_ticksys_jira_def IMPLEMENTATION.
            INTO CORRESPONDING FIELDS OF @me->definitions.
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
-                                                    tabname  = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid = CONV #( sy-sysid ) ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid   = ycx_addict_table_content=>no_entry_for_objectid
+                  tabname  = ycl_ticksys_jira_def=>table-jira_def
+                  objectid = CONV #( sy-sysid ).
     ENDIF.
 
     IF me->definitions-url IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid  = CONV #( sy-sysid )
-                                                    fieldname = field-url ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid    = ycx_addict_table_content=>entry_field_empty
+                  tabname   = ycl_ticksys_jira_def=>table-jira_def
+                  objectid  = CONV #( sy-sysid )
+                  fieldname = field-url.
     ENDIF.
 
     IF me->definitions-username IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid  = CONV #( sy-sysid )
-                                                    fieldname = field-username ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid    = ycx_addict_table_content=>entry_field_empty
+                  tabname   = ycl_ticksys_jira_def=>table-jira_def
+                  objectid  = CONV #( sy-sysid )
+                  fieldname = field-username.
     ENDIF.
 
     IF me->definitions-password IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid  = CONV #( sy-sysid )
-                                                    fieldname = field-password ).
+      RAISE EXCEPTION TYPE ycx_addict_table_content
+        EXPORTING textid    = ycx_addict_table_content=>entry_field_empty
+                  tabname   = ycl_ticksys_jira_def=>table-jira_def
+                  objectid  = CONV #( sy-sysid )
+                  fieldname = field-password.
     ENDIF.
 
     SELECT * FROM ytticksys_jitra                       "#EC CI_NOWHERE
