@@ -4,8 +4,14 @@
   <asx:values>
    <PROGDIR>
     <NAME>LYTTICKSYS_JIMMFT00</NAME>
+    <DBAPL>S</DBAPL>
+    <DBNA>D$</DBNA>
     <SUBC>I</SUBC>
+    <APPL>S</APPL>
     <RLOAD>T</RLOAD>
+    <FIXPT>X</FIXPT>
+    <LDBNAME>D$S</LDBNAME>
+    <UCCHECK>X</UCCHECK>
    </PROGDIR>
   </asx:values>
  </asx:abap>

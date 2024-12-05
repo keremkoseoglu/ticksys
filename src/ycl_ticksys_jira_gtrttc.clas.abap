@@ -1,10 +1,10 @@
 CLASS ycl_ticksys_jira_gtrttc DEFINITION
-  PUBLIC
-  FINAL
+  PUBLIC FINAL
   CREATE PRIVATE.
 
   PUBLIC SECTION.
     CLASS-METHODS get_instance
+      IMPORTING ticsy_id      TYPE yd_ticksys_ticsy_id
       RETURNING VALUE(result) TYPE REF TO ycl_ticksys_jira_gtrttc
       RAISING   ycx_addict_table_content.
 
@@ -22,13 +22,22 @@ CLASS ycl_ticksys_jira_gtrttc DEFINITION
            tcode_ticket_set TYPE HASHED TABLE OF tcode_ticket_dict
            WITH UNIQUE KEY primary_key COMPONENTS tcode.
 
-    CLASS-DATA singleton TYPE REF TO ycl_ticksys_jira_gtrttc.
+    TYPES: BEGIN OF multiton_dict,
+             ticsy_id TYPE yd_ticksys_ticsy_id,
+             obj      TYPE REF TO ycl_ticksys_jira_gtrttc,
+           END OF multiton_dict,
+
+           multiton_set TYPE HASHED TABLE OF multiton_dict WITH UNIQUE KEY primary_key COMPONENTS ticsy_id.
+
+    CLASS-DATA multitons TYPE multiton_set.
 
     DATA defs               TYPE REF TO ycl_ticksys_jira_def.
     DATA reader             TYPE REF TO ycl_ticksys_jira_reader.
     DATA tcode_ticket_cache TYPE tcode_ticket_set.
 
-    METHODS constructor RAISING ycx_addict_table_content.
+    METHODS constructor
+      IMPORTING ticsy_id TYPE yd_ticksys_ticsy_id
+      RAISING   ycx_addict_table_content.
 ENDCLASS.
 
 
@@ -37,8 +46,8 @@ CLASS ycl_ticksys_jira_gtrttc IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Object creation
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    me->defs   = ycl_ticksys_jira_def=>get_instance( ).
-    me->reader = ycl_ticksys_jira_reader=>get_instance( ).
+    me->defs   = ycl_ticksys_jira_def=>get_instance( ticsy_id ).
+    me->reader = ycl_ticksys_jira_reader=>get_instance( ticsy_id ).
   ENDMETHOD.
 
   METHOD execute.
@@ -57,6 +66,7 @@ CLASS ycl_ticksys_jira_gtrttc IMPLEMENTATION.
               DATA(jql_field) = <tcode_field>.
 
               IF jql_field CS 'customfield_'.
+                " TODO: variable is assigned but never used (ABAP cleaner)
                 DATA(split1) = ||.
                 DATA(split2) = ||.
                 SPLIT jql_field AT '_' INTO split1 split2.
@@ -85,19 +95,20 @@ CLASS ycl_ticksys_jira_gtrttc IMPLEMENTATION.
       CATCH ycx_ticksys_ticketing_system INTO DATA(ts_error).
         RAISE EXCEPTION ts_error.
       CATCH cx_root INTO DATA(diaper).
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING previous = diaper.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
 
   METHOD get_instance.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Singleton
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    result = ycl_ticksys_jira_gtrttc=>singleton.
+    TRY.
+        DATA(mt) = REF #( multitons[ KEY primary_key
+                                     ticsy_id = ticsy_id ] ).
+      CATCH cx_sy_itab_line_not_found.
+        INSERT VALUE #( ticsy_id = ticsy_id
+                        obj      = NEW #( ticsy_id ) )
+               INTO TABLE multitons REFERENCE INTO mt.
+    ENDTRY.
 
-    IF result IS INITIAL.
-      result = NEW #( ).
-    ENDIF.
+    result = mt->obj.
   ENDMETHOD.
 ENDCLASS.

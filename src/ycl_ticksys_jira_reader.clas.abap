@@ -1,12 +1,11 @@
 CLASS ycl_ticksys_jira_reader DEFINITION
-  PUBLIC
-  FINAL
+  PUBLIC FINAL
   CREATE PRIVATE.
 
   PUBLIC SECTION.
     TYPES string_range TYPE RANGE OF string.
 
-    TYPES status_set TYPE HASHED TABLE OF yif_ticksys_ticketing_system=>status_dict
+    TYPES status_set   TYPE HASHED TABLE OF yif_ticksys_ticketing_system=>status_dict
           WITH UNIQUE KEY primary_key COMPONENTS status_id.
 
     TYPES: BEGIN OF custom_field_value_dict,
@@ -33,7 +32,8 @@ CLASS ycl_ticksys_jira_reader DEFINITION
     DATA status_parent_rng     TYPE string_range READ-ONLY.
 
     CLASS-METHODS get_instance
-      RETURNING VALUE(instance) TYPE REF TO ycl_ticksys_jira_reader
+      IMPORTING ticsy_id      TYPE yd_ticksys_ticsy_id
+      RETURNING VALUE(result) TYPE REF TO ycl_ticksys_jira_reader
       RAISING   ycx_addict_table_content.
 
     METHODS create_http_client
@@ -58,7 +58,7 @@ CLASS ycl_ticksys_jira_reader DEFINITION
       RAISING   ycx_ticksys_ticketing_system.
 
   PRIVATE SECTION.
-    TYPES  issue_set TYPE HASHED TABLE OF issue_dict
+    TYPES issue_set TYPE HASHED TABLE OF issue_dict
            WITH UNIQUE KEY primary_key COMPONENTS ticket_id.
 
     TYPES: BEGIN OF bin_dict,
@@ -70,13 +70,20 @@ CLASS ycl_ticksys_jira_reader DEFINITION
     TYPES json_regex_replacement_list TYPE SORTED TABLE OF ytticksys_jijrr
           WITH UNIQUE KEY primary_key COMPONENTS replace_order.
 
+    TYPES: BEGIN OF multiton_dict,
+             ticsy_id TYPE yd_ticksys_ticsy_id,
+             obj      TYPE REF TO ycl_ticksys_jira_reader,
+           END OF multiton_dict,
+
+           multiton_set TYPE HASHED TABLE OF multiton_dict WITH UNIQUE KEY primary_key COMPONENTS ticsy_id.
+
     CONSTANTS json_null TYPE text4 VALUE 'null'.
 
     CONSTANTS: BEGIN OF http_return,
                  ok TYPE i VALUE 200,
                END OF http_return.
 
-    CLASS-DATA singleton TYPE REF TO ycl_ticksys_jira_reader.
+    CLASS-DATA multitons TYPE multiton_set.
 
     DATA: defs                      TYPE REF TO ycl_ticksys_jira_def,
           issue_cache               TYPE issue_set,
@@ -84,7 +91,9 @@ CLASS ycl_ticksys_jira_reader DEFINITION
           lazy_json_regex_reps      TYPE json_regex_replacement_list,
           lazy_json_regex_reps_read TYPE abap_bool.
 
-    METHODS constructor RAISING ycx_addict_table_content.
+    METHODS constructor
+      IMPORTING ticsy_id TYPE yd_ticksys_ticsy_id
+      RAISING   ycx_addict_table_content.
 
     METHODS http_get_jira_rest_api
       IMPORTING url            TYPE string
@@ -104,7 +113,7 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Initial object access
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    me->defs                  = ycl_ticksys_jira_def=>get_instance( ).
+    me->defs                  = ycl_ticksys_jira_def=>get_instance( ticsy_id ).
 
     me->subtask_parent_rng    = VALUE #( option = ycl_addict_toolkit=>option-cp
                                          ( sign = ycl_addict_toolkit=>sign-include
@@ -142,9 +151,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                               OTHERS             = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
-                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                              textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
+                              ticsy_id = me->defs->definitions-ticsy_id ).
     ENDIF.
 
     http_client->request->set_version( if_http_request=>co_protocol_version_1_0 ).
@@ -154,14 +163,16 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_instance.
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Returns singleton instance
-    """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    instance = ycl_ticksys_jira_reader=>singleton.
+    TRY.
+        DATA(mt) = REF #( multitons[ KEY primary_key
+                                     ticsy_id = ticsy_id ] ).
+      CATCH cx_sy_itab_line_not_found.
+        INSERT VALUE #( ticsy_id = ticsy_id
+                        obj      = NEW #( ticsy_id ) )
+               INTO TABLE multitons REFERENCE INTO mt.
+    ENDTRY.
 
-    IF instance IS INITIAL.
-      instance = NEW #( ).
-    ENDIF.
+    result = mt->obj.
   ENDMETHOD.
 
   METHOD get_jira_issue.
@@ -191,12 +202,12 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
 
       IF total = space OR total = '0'.
         DATA(ticket_error) = NEW ycx_ticksys_ticket( textid    = ycx_ticksys_ticket=>ticket_not_found
-                                                     ticsy_id  = ycl_ticksys_jira=>ticsy_id
+                                                     ticsy_id  = me->defs->definitions-ticsy_id
                                                      ticket_id = ticket_id ).
 
-        RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-          EXPORTING textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
-                    previous = ticket_error.
+        RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                                textid   = ycx_ticksys_ticketing_system=>ycx_ticksys_ticketing_system
+                                previous = ticket_error ).
       ENDIF.
 
       " Read values """""""""""""""""""""""""""""""""""""""""""""""""
@@ -357,9 +368,8 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                   OTHERS                     = 5 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_request_error
-                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( textid   = ycx_ticksys_ticketing_system=>http_request_error
+                                                        ticsy_id = me->defs->definitions-ticsy_id ).
     ENDIF.
 
     http_client->receive( EXCEPTIONS http_communication_failure = 1
@@ -368,9 +378,8 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                                      OTHERS                     = 4 ).
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_response_error
-                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( textid   = ycx_ticksys_ticketing_system=>http_response_error
+                                                        ticsy_id = me->defs->definitions-ticsy_id ).
     ENDIF.
 
     http_client->response->get_status( IMPORTING code = DATA(rc) ).
@@ -378,10 +387,10 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     http_client->close( ).
 
     IF rc <> me->http_return-ok.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING textid           = ycx_ticksys_ticketing_system=>unexpected_http_status
-                  ticsy_id         = ycl_ticksys_jira=>ticsy_id
-                  http_status_code = rc.
+      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                              textid           = ycx_ticksys_ticketing_system=>unexpected_http_status
+                              ticsy_id         = me->defs->definitions-ticsy_id
+                              http_status_code = rc ).
     ENDIF.
 
     " Parse """""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -403,9 +412,9 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
                  OTHERS       = 2.
 
     IF sy-subrc <> 0.
-      RAISE EXCEPTION TYPE ycx_ticksys_ticketing_system
-        EXPORTING textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
-                  ticsy_id = ycl_ticksys_jira=>ticsy_id.
+      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
+                              textid   = ycx_ticksys_ticketing_system=>http_response_parse_error
+                              ticsy_id = me->defs->definitions-ticsy_id ).
     ENDIF.
 
     replace_regex_in_json( CHANGING json = json_response ).
@@ -434,9 +443,10 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     IF me->lazy_json_regex_reps_read = abap_false.
       SELECT * FROM ytticksys_jijrr "#EC CI_NOFIELD
-               WHERE json_regex <> @space
-               ORDER BY replace_order
-               INTO  CORRESPONDING FIELDS OF TABLE @me->lazy_json_regex_reps.
+             WHERE ticsy_id    = @me->defs->definitions-ticsy_id
+               AND json_regex <> @space
+             ORDER BY replace_order
+             INTO CORRESPONDING FIELDS OF TABLE @me->lazy_json_regex_reps.
 
       me->lazy_json_regex_reps_read = abap_true.
     ENDIF.
