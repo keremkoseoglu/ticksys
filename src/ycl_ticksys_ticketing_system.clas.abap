@@ -20,6 +20,10 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
     CLASS-METHODS format_ticket_id_input
       CHANGING ticket_ids TYPE yif_ticksys_ticketing_system=>ticket_id_list.
 
+    CLASS-METHODS get_ticket_sys_having_ticket
+      IMPORTING ticket_id     TYPE yd_ticksys_ticket_id
+      RETURNING VALUE(result) TYPE ticketing_system_set.
+
     CLASS-METHODS get_instance
       IMPORTING !key       TYPE key_dict
       RETURNING VALUE(obj) TYPE REF TO ycl_ticksys_ticketing_system
@@ -136,6 +140,20 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
                                                       tabname  = me->table-def
                                                       objectid = CONV #( me->def-ticsy_id ) ).
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD get_ticket_sys_having_ticket.
+    LOOP AT ticketing_systems REFERENCE INTO DATA(ts).
+      TRY.
+          DATA(ticket_sys) = ycl_ticksys_ticketing_system=>get_instance( VALUE #( ticsy_id = ts->ticsy_id ) ).
+          CHECK ticket_sys->implementation->is_ticket_id_valid( ticket_id ).
+
+        CATCH cx_root.
+          CONTINUE.
+      ENDTRY.
+
+      INSERT ts->* INTO TABLE result.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD get_instance.
