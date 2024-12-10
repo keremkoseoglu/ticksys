@@ -34,11 +34,6 @@ CLASS ycl_ticksys_jira DEFINITION
       IMPORTING sap_date      TYPE dats
       RETURNING VALUE(result) TYPE string.
 
-    METHODS build_modified_ticket_jql
-      IMPORTING begda      TYPE dats
-                endda      TYPE dats
-                users      TYPE yif_ticksys_ticketing_system=>string_list
-      RETURNING VALUE(jql) TYPE string.
 ENDCLASS.
 
 
@@ -105,32 +100,6 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
 
   METHOD conv_sap_date_to_jira_date.
     result = |{ sap_date+0(4) }-{ sap_date+4(2) }-{ sap_date+6(2) }|.
-  ENDMETHOD.
-
-  METHOD build_modified_ticket_jql.
-    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    " Sample JQL:
-    " updated >= 2024-12-09 AND
-    " updated <= 2024-12-10 AND
-    " ( issue in updatedBy("kerem.koseoglu") OR
-    "   issue in updatedBy("baris.kocak") )
-    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    jql = |updated >= { conv_sap_date_to_jira_date( begda ) }| &&
-          | AND updated <= { conv_sap_date_to_jira_date( endda ) }|.
-
-    IF users IS NOT INITIAL.
-      jql = |{ jql } AND (|.
-
-      LOOP AT users REFERENCE INTO DATA(user).
-        IF sy-tabix > 1.
-          jql = |{ jql } OR|.
-        ENDIF.
-
-        jql = |{ jql } issue in updatedBy("{ user->* }")|.
-      ENDLOOP.
-
-      jql = |{ jql })|.
-    ENDIF.
   ENDMETHOD.
 
   METHOD yif_ticksys_ticketing_system~can_set_ticket_to_status.
@@ -337,18 +306,25 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD yif_ticksys_ticketing_system~get_modified_tickets.
-    DATA(modified_ticket_jql) = build_modified_ticket_jql( begda = begda
-                                                           endda = endda
-                                                           users = users ).
+    LOOP AT users REFERENCE INTO DATA(user).
+      DATA(date_cursor) = begda.
 
-    DATA(issues) = me->reader->search_issues( modified_ticket_jql ).
+      WHILE date_cursor <= endda.
+        DATA(jira_date) = conv_sap_date_to_jira_date( date_cursor ).
+        DATA(jql)       = |issue in updatedBy("{ user->* }", "{ jira_date }")|.
+        DATA(issues)    = me->reader->search_issues( jql ).
 
-    tickets = VALUE #( FOR GROUPS _id OF _iss IN issues
-                       WHERE (     parent IN me->reader->issue_key_parent_rng
-                               AND name    = 'key'
-                               AND value  IS NOT INITIAL )
-                       GROUP BY _iss-value
-                       ( CONV #( _id ) ) ).
+        DATA(user_tickets_on_date) = VALUE yif_ticksys_ticketing_system=>ticket_id_list( FOR GROUPS _id OF _iss IN issues
+                                                                                         WHERE (     parent IN me->reader->issue_key_parent_rng
+                                                                                                 AND name    = 'key'
+                                                                                                 AND value  IS NOT INITIAL )
+                                                                                         GROUP BY _iss-value
+                                                                                         ( CONV #( _id ) ) ).
+
+        APPEND LINES OF user_tickets_on_date TO tickets.
+        date_cursor = date_cursor + 1.
+      ENDWHILE.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD yif_ticksys_ticketing_system~get_ticket_header.
