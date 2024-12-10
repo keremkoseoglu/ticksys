@@ -29,6 +29,16 @@ CLASS ycl_ticksys_jira DEFINITION
       RETURNING VALUE(result) TYPE REF TO ytticksys_jitra
       RAISING   ycx_ticksys_ticketing_system
                 ycx_ticksys_undefined_status_c.
+
+    METHODS conv_sap_date_to_jira_date
+      IMPORTING sap_date      TYPE dats
+      RETURNING VALUE(result) TYPE string.
+
+    METHODS build_modified_ticket_jql
+      IMPORTING begda      TYPE dats
+                endda      TYPE dats
+                users      TYPE yif_ticksys_ticketing_system=>string_list
+      RETURNING VALUE(jql) TYPE string.
 ENDCLASS.
 
 
@@ -91,6 +101,36 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Returns an URL for the given ticket
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     url = |{ ycl_ticksys_jira=>defs->definitions-url }/browse/{ ticket_id }|.
+  ENDMETHOD.
+
+  METHOD conv_sap_date_to_jira_date.
+    result = |{ sap_date+0(4) }-{ sap_date+4(2) }-{ sap_date+6(2) }|.
+  ENDMETHOD.
+
+  METHOD build_modified_ticket_jql.
+    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    " Sample JQL:
+    " updated >= 2024-12-09 AND
+    " updated <= 2024-12-10 AND
+    " ( issue in updatedBy("kerem.koseoglu") OR
+    "   issue in updatedBy("baris.kocak") )
+    """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    jql = |updated >= { conv_sap_date_to_jira_date( begda ) }| &&
+          | AND updated <= { conv_sap_date_to_jira_date( endda ) }|.
+
+    IF users IS NOT INITIAL.
+      jql = |{ jql } AND (|.
+
+      LOOP AT users REFERENCE INTO DATA(user).
+        IF sy-tabix > 1.
+          jql = |{ jql } OR|.
+        ENDIF.
+
+        jql = |{ jql } issue in updatedBy("{ user->* }")|.
+      ENDLOOP.
+
+      jql = |{ jql })|.
+    ENDIF.
   ENDMETHOD.
 
   METHOD yif_ticksys_ticketing_system~can_set_ticket_to_status.
@@ -294,6 +334,21 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       CATCH cx_root INTO DATA(diaper).
         RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_modified_tickets.
+    DATA(modified_ticket_jql) = build_modified_ticket_jql( begda = begda
+                                                           endda = endda
+                                                           users = users ).
+
+    DATA(issues) = me->reader->search_issues( modified_ticket_jql ).
+
+    tickets = VALUE #( FOR GROUPS _id OF _iss IN issues
+                       WHERE (     parent IN me->reader->issue_key_parent_rng
+                               AND name    = 'key'
+                               AND value  IS NOT INITIAL )
+                       GROUP BY _iss-value
+                       ( CONV #( _id ) ) ).
   ENDMETHOD.
 
   METHOD yif_ticksys_ticketing_system~get_ticket_header.

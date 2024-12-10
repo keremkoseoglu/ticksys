@@ -20,11 +20,11 @@ INTERFACE yif_ticksys_ticketing_system
          ticket_status_list TYPE STANDARD TABLE OF ticket_status_dict WITH KEY ticket_id.
 
   TYPES: BEGIN OF ticket_key_dict,
-            ticsy_id  TYPE yd_ticksys_ticsy_id,
-            ticket_id TYPE yd_ticksys_ticket_id,
-          END OF ticket_key_dict,
+           ticsy_id  TYPE yd_ticksys_ticsy_id,
+           ticket_id TYPE yd_ticksys_ticket_id,
+         END OF ticket_key_dict,
 
-          ticket_key_list TYPE STANDARD TABLE OF ticket_key_dict WITH KEY ticsy_id ticket_id.
+         ticket_key_list TYPE STANDARD TABLE OF ticket_key_dict WITH KEY ticsy_id ticket_id.
 
   CONSTANTS: BEGIN OF class,
                me TYPE seoclsname VALUE 'YIF_TICKSYS_TICKETING_SYSTEM',
@@ -80,6 +80,13 @@ INTERFACE yif_ticksys_ticketing_system
     IMPORTING statuses       TYPE status_id_list
               !types         TYPE type_id_list OPTIONAL
     RETURNING VALUE(tickets) TYPE ticket_status_list
+    RAISING   ycx_ticksys_ticketing_system.
+
+  METHODS get_modified_tickets DEFAULT IGNORE
+    IMPORTING begda          TYPE dats
+              endda          TYPE dats
+              users          TYPE string_list
+    RETURNING VALUE(tickets) TYPE ticket_id_list
     RAISING   ycx_ticksys_ticketing_system.
 
   METHODS set_ticket_status DEFAULT IGNORE
