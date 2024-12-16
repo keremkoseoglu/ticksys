@@ -37,8 +37,8 @@ CLASS ycl_ticksys_jira_reader DEFINITION
       RAISING   ycx_addict_table_content.
 
     METHODS create_http_client
-      IMPORTING url                TYPE clike
-      RETURNING VALUE(http_client) TYPE REF TO if_http_client
+      IMPORTING url           TYPE clike
+      RETURNING VALUE(result) TYPE REF TO if_http_client
       RAISING   ycx_ticksys_ticketing_system.
 
     METHODS get_statuses
@@ -89,7 +89,8 @@ CLASS ycl_ticksys_jira_reader DEFINITION
           issue_cache               TYPE issue_set,
           status_cache              TYPE status_set,
           lazy_json_regex_reps      TYPE json_regex_replacement_list,
-          lazy_json_regex_reps_read TYPE abap_bool.
+          lazy_json_regex_reps_read TYPE abap_bool,
+          http_client_factory       TYPE REF TO yif_ticksys_jira_http_clnt_fct.
 
     METHODS constructor
       IMPORTING ticsy_id TYPE yd_ticksys_ticsy_id
@@ -105,6 +106,9 @@ CLASS ycl_ticksys_jira_reader DEFINITION
 
     METHODS replace_regex_in_json
       CHANGING VALUE(json) TYPE string.
+
+    METHODS get_http_client_factory_lazy
+      RETURNING VALUE(result) TYPE REF TO yif_ticksys_jira_http_clnt_fct.
 ENDCLASS.
 
 
@@ -143,23 +147,8 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Creates a new HTTP client connecting to Jira
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    cl_http_client=>create_by_url( EXPORTING  url                = CONV #( url )
-                                   IMPORTING  client             = http_client
-                                   EXCEPTIONS argument_not_found = 1
-                                              plugin_not_active  = 2
-                                              internal_error     = 3
-                                              OTHERS             = 4 ).
-
-    IF sy-subrc <> 0.
-      RAISE EXCEPTION NEW ycx_ticksys_ticketing_system(
-                              textid   = ycx_ticksys_ticketing_system=>http_client_creation_error
-                              ticsy_id = me->defs->definitions-ticsy_id ).
-    ENDIF.
-
-    http_client->request->set_version( if_http_request=>co_protocol_version_1_0 ).
-
-    http_client->authenticate( username = CONV #( me->defs->definitions-username )
-                               password = CONV #( me->defs->definitions-password ) ).
+    DATA(http_client_factory) = get_http_client_factory_lazy( ).
+    result = http_client_factory->create_default_client( url ).
   ENDMETHOD.
 
   METHOD get_instance.
@@ -466,5 +455,13 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
       REPLACE ALL OCCURRENCES OF REGEX replacement->json_regex
               IN json WITH replacement->new_json_val IGNORING CASE.
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD get_http_client_factory_lazy.
+    IF me->http_client_factory IS INITIAL.
+      me->http_client_factory = CAST #( NEW ycl_ticksys_jira_http_clnt_fct( me->defs ) ).
+    ENDIF.
+
+    result = me->http_client_factory.
   ENDMETHOD.
 ENDCLASS.

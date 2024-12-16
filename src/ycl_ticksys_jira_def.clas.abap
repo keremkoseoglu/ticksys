@@ -75,20 +75,6 @@ CLASS ycl_ticksys_jira_def IMPLEMENTATION.
                                                     fieldname = field-url ).
     ENDIF.
 
-    IF me->definitions-username IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid  = |{ sy-sysid }-{ ticsy_id }|
-                                                    fieldname = field-username ).
-    ENDIF.
-
-    IF me->definitions-password IS INITIAL.
-      RAISE EXCEPTION NEW ycx_addict_table_content( textid    = ycx_addict_table_content=>entry_field_empty
-                                                    tabname   = ycl_ticksys_jira_def=>table-jira_def
-                                                    objectid  = |{ sy-sysid }-{ ticsy_id }|
-                                                    fieldname = field-password ).
-    ENDIF.
-
     SELECT * FROM ytticksys_jitra
            WHERE ticsy_id = @ticsy_id
            INTO TABLE @me->transitions.
