@@ -12,10 +12,10 @@ CLASS ycl_ticksys_jira DEFINITION
                  ok TYPE char3 VALUE '204',
                END OF status_code.
 
-    CLASS-DATA defs   TYPE REF TO ycl_ticksys_jira_def.
-    CLASS-DATA reader TYPE REF TO ycl_ticksys_jira_reader.
+    DATA: defs   TYPE REF TO ycl_ticksys_jira_def,
+          reader TYPE REF TO ycl_ticksys_jira_reader.
 
-    CLASS-METHODS get_ticket_url
+    METHODS get_ticket_url
       IMPORTING ticket_id  TYPE yd_ticksys_ticket_id
       RETURNING VALUE(url) TYPE string.
 
@@ -95,7 +95,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Returns an URL for the given ticket
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    url = |{ ycl_ticksys_jira=>defs->definitions-url }/browse/{ ticket_id }|.
+    url = |{ me->defs->definitions-url }/browse/{ ticket_id }|.
   ENDMETHOD.
 
   METHOD conv_sap_date_to_jira_date.
