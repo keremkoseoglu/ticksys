@@ -200,6 +200,10 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
       ENDIF.
 
       " Read values """""""""""""""""""""""""""""""""""""""""""""""""
+      cache-header-internal_ticket_id = VALUE #( results[ parent = |/issues/1|
+                                                          name   = 'id'
+                                                 ]-value OPTIONAL ).
+
       cache-header-ticket_description = VALUE #( results[ parent = |/issues/1/fields|
                                                           name   = 'summary'
                                                  ]-value OPTIONAL ).
@@ -251,16 +255,23 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
            GROUP BY ( jira_field = _jsaf-jira_field )
            ASSIGNING FIELD-SYMBOL(<jsaf>).
 
-        ASSIGN results[ parent = |/issues/1/fields/{ <jsaf>-jira_field }|
-                        name   = 'name' ]
-               TO FIELD-SYMBOL(<custom_field>).
+        DATA(assignee_found) = abap_false.
 
-        CHECK     sy-subrc              = 0
-              AND <custom_field>-value <> me->json_null.
+        LOOP AT results REFERENCE INTO DATA(assignee_result)
+             WHERE     parent  = |/issues/1/fields/{ <jsaf>-jira_field }|
+                   AND name    = me->defs->definitions-assignee_fld
+                   AND value  <> me->json_null.
 
-        INSERT VALUE custom_field_value_dict( jira_field = <jsaf>-jira_field
-                                              value      = <custom_field>-value )
-               INTO TABLE cache-custom_fields.
+          INSERT VALUE custom_field_value_dict( jira_field = <jsaf>-jira_field
+                                                value      = assignee_result->value )
+                 INTO TABLE cache-custom_fields.
+
+          assignee_found = abap_true.
+          EXIT.
+        ENDLOOP.
+
+        CHECK assignee_found = abap_true.
+        EXIT.
       ENDLOOP.
 
       LOOP AT me->defs->transport_instruction_fields ASSIGNING FIELD-SYMBOL(<tif>).

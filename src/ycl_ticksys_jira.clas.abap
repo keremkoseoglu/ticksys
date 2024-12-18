@@ -375,19 +375,17 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     " Sets the ticket assignee
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     TRY.
-        DATA(url) = |{ me->defs->definitions-url }/rest/api/2/issue/{ ticket_id }|.
+        DATA(url)         = |{ me->defs->definitions-url }/rest/api/2/issue/{ ticket_id }|.
         DATA(http_client) = me->reader->create_http_client( url ).
-
-        DATA(body) = |\{"fields":\{"assignee":\{"name":"{ assignee }"\}\}\}|.
+        DATA(body)        = |\{"fields":\{"assignee":\{"{ me->defs->definitions-assignee_fld }":"{ assignee }"\}\}\}|.
         DATA(rest_client) = NEW cl_rest_http_client( http_client ).
+        DATA(request)     = rest_client->if_rest_client~create_request_entity( ).
 
-        DATA(request) = rest_client->if_rest_client~create_request_entity( ).
         request->set_content_type( iv_media_type = if_rest_media_type=>gc_appl_json ).
         request->set_string_data( body ).
-
         rest_client->if_rest_resource~put( request ).
 
-        DATA(response) = rest_client->if_rest_client~get_response_entity( ).
+        DATA(response)  = rest_client->if_rest_client~get_response_entity( ).
         DATA(http_code) = response->get_header_field( '~status_code' ).
 
         IF http_code <> me->status_code-ok.
