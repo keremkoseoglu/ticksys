@@ -42,6 +42,7 @@ CLASS ycl_ticksys_jira_http_clnt_fct IMPLEMENTATION.
     DATA(encoded_token_string) = cl_http_utility=>encode_base64(
                                      |{ me->jira_def->definitions-username }:{ me->jira_def->definitions-api_token }| ).
 
+    ##NO_TEXT
     result->request->set_header_field( name  = 'Authorization'
                                        value = |Basic { encoded_token_string }| ).
   ENDMETHOD.

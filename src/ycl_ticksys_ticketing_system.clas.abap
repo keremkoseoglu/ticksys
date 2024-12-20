@@ -7,22 +7,11 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
              ticsy_id TYPE yd_ticksys_ticsy_id,
            END OF key_dict.
 
-    TYPES ticketing_system_set TYPE HASHED TABLE OF ytticksys_ticsy
-                               WITH UNIQUE KEY primary_key COMPONENTS ticsy_id.
-
-    CLASS-DATA ticketing_systems TYPE ticketing_system_set READ-ONLY.
-
     DATA def            TYPE ytticksys_ticsy                     READ-ONLY.
     DATA implementation TYPE REF TO yif_ticksys_ticketing_system READ-ONLY.
 
-    CLASS-METHODS class_constructor.
-
     CLASS-METHODS format_ticket_id_input
       CHANGING ticket_ids TYPE yif_ticksys_ticketing_system=>ticket_id_list.
-
-    CLASS-METHODS get_ticket_sys_having_ticket
-      IMPORTING ticket_id     TYPE yd_ticksys_ticket_id
-      RETURNING VALUE(result) TYPE ticketing_system_set.
 
     CLASS-METHODS get_instance
       IMPORTING !key       TYPE key_dict
@@ -56,17 +45,12 @@ CLASS ycl_ticksys_ticketing_system DEFINITION
 
     METHODS constructor
       IMPORTING !key TYPE key_dict
+                hub  TYPE REF TO yif_ticksys_ticket_sys_hub
       RAISING   ycx_addict_table_content.
 ENDCLASS.
 
 
 CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
-  METHOD class_constructor.
-    SELECT * FROM ytticksys_ticsy                       "#EC CI_NOWHERE
-           INTO CORRESPONDING FIELDS OF TABLE
-           ycl_ticksys_ticketing_system=>ticketing_systems.
-  ENDMETHOD.
-
   METHOD format_ticket_id_input.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " String-format ticket ID's
@@ -80,11 +64,12 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Called on object creation
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
     DATA obj TYPE REF TO object.
 
+    DATA(ticketing_systems) = hub->get_all_ticketing_systems( ).
+
     TRY.
-        me->def = me->ticketing_systems[ KEY primary_key COMPONENTS ticsy_id = key-ticsy_id ].
+        me->def = ticketing_systems[ KEY primary_key COMPONENTS ticsy_id = key-ticsy_id ].
       CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
         RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
                                                       previous = itab_error
@@ -142,20 +127,6 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-  METHOD get_ticket_sys_having_ticket.
-    LOOP AT ticketing_systems REFERENCE INTO DATA(ts).
-      TRY.
-          DATA(ticket_sys) = ycl_ticksys_ticketing_system=>get_instance( VALUE #( ticsy_id = ts->ticsy_id ) ).
-          CHECK ticket_sys->implementation->is_ticket_id_valid( ticket_id ).
-
-        CATCH cx_root.
-          CONTINUE.
-      ENDTRY.
-
-      INSERT ts->* INTO TABLE result.
-    ENDLOOP.
-  ENDMETHOD.
-
   METHOD get_instance.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Multiton factory
@@ -166,7 +137,8 @@ CLASS ycl_ticksys_ticketing_system IMPLEMENTATION.
       DATA(multiton) = VALUE multiton_dict( key = key ).
 
       TRY.
-          multiton-obj = NEW #( multiton-key ).
+          multiton-obj = NEW #( key = multiton-key
+                                hub = CAST #( ycl_ticksys_ticket_sys_hub=>get_instance( ) ) ).
         CATCH ycx_addict_table_content INTO multiton-cx ##NO_HANDLER.
       ENDTRY.
 
