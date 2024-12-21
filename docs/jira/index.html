@@ -117,8 +117,13 @@
     <td><b>PASSWORD</b></td>
     <td>(Your Jira password)</td>
   </tr>
+  <tr>
+    <td><b>API_TOKEN</b></td>
+    <td>(Your Jira API token)</td>
+  </tr>
 </table>
 
+<p>Note that you must enter either a password or an API token. If you are accessing an on-premise Jira system with basic authentication, you should put in the password. If you are accessing Jira Cloud, you must <a href="https://id.atlassian.com/manage-profile/security/api-tokens">create an API token</a> for the user and put in the generated token.</p>
 <p>Add new entries to <strong>YTTICKSYS_JITRA</strong> for each status transition. For each "STATUS A -&gt; STATUS B" transition, Jira has a unique transition ID. This table stores those values. In You may need help from your Jira admin to get those ID's since they are not visible on the user interface.</p>
 <table>
   <tr>
