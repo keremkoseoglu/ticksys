@@ -94,7 +94,7 @@ CLASS ycl_ticksys_ticket_sys_hub IMPLEMENTATION.
         LOOP AT tick_systems_having_ticket REFERENCE INTO DATA(tick_sys_def).
           set_ticket_system_id( ticsy_id     = tick_sys_def->ticsy_id
                                 ticket_cache = ticket_cache ).
-          EXIT.
+          EXIT. "#EC CI_NOORDER
         ENDLOOP.
       ENDDO.
 

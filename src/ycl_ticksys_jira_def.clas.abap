@@ -28,7 +28,8 @@ CLASS ycl_ticksys_jira_def DEFINITION
           status_orders                TYPE status_order_list READ-ONLY,
           transport_instruction_fields TYPE jira_field_list   READ-ONLY,
           tcode_fields                 TYPE jira_field_list   READ-ONLY,
-          main_module_fields           TYPE jira_field_list   READ-ONLY.
+          main_module_fields           TYPE jira_field_list   READ-ONLY,
+          location_fields              TYPE jira_field_list   READ-ONLY.
 
     CLASS-METHODS get_instance
       IMPORTING ticsy_id      TYPE yd_ticksys_ticsy_id
@@ -98,6 +99,11 @@ CLASS ycl_ticksys_jira_def IMPLEMENTATION.
            WHERE ticsy_id    = @ticsy_id
              AND jira_field <> @space
            INTO TABLE @me->main_module_fields.
+
+    SELECT jira_field FROM ytticksys_jilof "#EC CI_NOFIELD
+           WHERE ticsy_id    = @ticsy_id
+             AND jira_field <> @space
+           INTO TABLE @me->location_fields.
 
     SELECT * FROM ytticksys_jisto
            WHERE ticsy_id = @ticsy_id

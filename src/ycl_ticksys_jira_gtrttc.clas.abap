@@ -66,8 +66,7 @@ CLASS ycl_ticksys_jira_gtrttc IMPLEMENTATION.
               DATA(jql_field) = <tcode_field>.
 
               IF jql_field CS 'customfield_'.
-                " TODO: variable is assigned but never used (ABAP cleaner)
-                DATA(split1) = ||.
+                DATA(split1) = || ##NEEDED.
                 DATA(split2) = ||.
                 SPLIT jql_field AT '_' INTO split1 split2.
                 jql_field = |cf[{ split2 }]|.

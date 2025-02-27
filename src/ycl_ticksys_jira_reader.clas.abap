@@ -90,7 +90,9 @@ CLASS ycl_ticksys_jira_reader DEFINITION
           status_cache              TYPE status_set,
           lazy_json_regex_reps      TYPE json_regex_replacement_list,
           lazy_json_regex_reps_read TYPE abap_bool,
-          http_client_factory       TYPE REF TO yif_ticksys_jira_http_clnt_fct.
+          http_client_factory       TYPE REF TO yif_ticksys_jira_http_clnt_fct,
+          location_parent_rng       TYPE string_range,
+          location_parent_rng_built TYPE abap_bool.
 
     METHODS constructor
       IMPORTING ticsy_id TYPE yd_ticksys_ticsy_id
@@ -105,10 +107,13 @@ CLASS ycl_ticksys_jira_reader DEFINITION
       RETURNING VALUE(result) TYPE REF TO json_regex_replacement_list.
 
     METHODS replace_regex_in_json
-      CHANGING VALUE(json) TYPE string.
+      CHANGING json TYPE string.
 
     METHODS get_http_client_factory_lazy
       RETURNING VALUE(result) TYPE REF TO yif_ticksys_jira_http_clnt_fct.
+
+    METHODS get_location_parent_rng_lazy
+      RETURNING VALUE(result) TYPE REF TO string_range.
 ENDCLASS.
 
 
@@ -311,6 +316,20 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
         ENDLOOP.
       ENDLOOP.
 
+      DATA(location_parent_rng) = get_location_parent_rng_lazy( ).
+
+      LOOP AT results REFERENCE INTO DATA(location_value)
+           WHERE     parent IN location_parent_rng->*
+                 AND name    = 'value'
+                 AND value  IS NOT INITIAL
+                 AND value  <> me->json_null.
+
+        cache-header-location =
+          |{ cache-header-location }| &&
+          |{ COND #( WHEN cache-header-location IS NOT INITIAL THEN ` ` ) }| &&
+          |{ location_value->value }|.
+      ENDLOOP.
+
       SORT cache-linked_tickets.
       DELETE ADJACENT DUPLICATES FROM cache-linked_tickets.
 
@@ -474,5 +493,24 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
     ENDIF.
 
     result = me->http_client_factory.
+  ENDMETHOD.
+
+  METHOD get_location_parent_rng_lazy.
+    result = REF #( me->location_parent_rng ).
+    CHECK me->location_parent_rng_built = abap_false.
+
+    " /issues/1/fields/customfield_10139/1
+    result->* = VALUE #( FOR _loc IN me->defs->location_fields
+                         ( sign   = ycl_addict_toolkit=>sign-include
+                           option = ycl_addict_toolkit=>option-cp
+                           low    = |/issues/1/fields/{ _loc }/*| ) ).
+
+    IF result->* IS INITIAL.
+      result->* = VALUE #( ( sign   = ycl_addict_toolkit=>sign-exclude
+                             option = ycl_addict_toolkit=>option-cp
+                             low    = '*' ) ).
+    ENDIF.
+
+    me->location_parent_rng_built = abap_true.
   ENDMETHOD.
 ENDCLASS.
