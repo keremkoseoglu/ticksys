@@ -108,4 +108,7 @@ INTERFACE yif_ticksys_ticketing_system
     IMPORTING ticket_id TYPE yd_ticksys_ticket_id
     RAISING   ycx_ticksys_ticketing_system.
 
+  METHODS get_ticsy_id DEFAULT IGNORE
+    RETURNING VALUE(result) TYPE yd_ticksys_ticsy_id.
+
 ENDINTERFACE.

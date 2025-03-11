@@ -469,4 +469,8 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         RAISE EXCEPTION NEW ycx_ticksys_ticketing_system( previous = diaper ).
     ENDTRY.
   ENDMETHOD.
+
+  METHOD yif_ticksys_ticketing_system~get_ticsy_id.
+    result = me->defs->definitions-ticsy_id.
+  ENDMETHOD.
 ENDCLASS.
