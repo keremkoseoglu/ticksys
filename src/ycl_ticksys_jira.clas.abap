@@ -312,7 +312,7 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
       WHILE date_cursor <= endda.
         DATA(jira_date) = conv_sap_date_to_jira_date( date_cursor ).
         ##NO_TEXT
-        DATA(jql)    = |issue in updatedBy("{ user->* }", "{ jira_date }")|.
+        DATA(jql)    = |issue in updatedBy("{ user->* }", "{ jira_date }", "{ jira_date }")|.
         DATA(issues) = me->reader->search_issues( jql ).
 
         DATA(user_tickets_on_date) = VALUE yif_ticksys_ticketing_system=>ticket_id_list( FOR GROUPS _id OF _iss IN issues
