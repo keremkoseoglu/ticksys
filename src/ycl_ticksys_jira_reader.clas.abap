@@ -24,6 +24,7 @@ CLASS ycl_ticksys_jira_reader DEFINITION
              linked_tickets         TYPE yif_ticksys_ticketing_system=>ticket_id_list,
              tcodes                 TYPE yif_ticksys_ticketing_system=>tcode_list,
              transport_instructions TYPE string,
+             platforms              TYPE yif_ticksys_ticketing_system=>platform_list,
            END OF issue_dict.
 
     DATA subtask_parent_rng    TYPE string_range READ-ONLY.
@@ -315,6 +316,17 @@ CLASS ycl_ticksys_jira_reader IMPLEMENTATION.
           ENDCASE.
         ENDLOOP.
       ENDLOOP.
+
+      LOOP AT me->defs->platform_fields ASSIGNING FIELD-SYMBOL(<plf>).
+        APPEND LINES OF VALUE yif_ticksys_ticketing_system=>tcode_list( FOR _entry IN results
+                                                                        WHERE (     parent  = |/issues/1/fields/{ <plf> }|
+                                                                                AND name    = 'value'
+                                                                                AND value  <> me->json_null )
+                                                                        ( CONV #( _entry-value ) ) )
+               TO cache-platforms.
+      ENDLOOP.
+
+      cache-header-platform = VALUE #( cache-platforms[ 1 ] OPTIONAL ).
 
       DATA(location_parent_rng) = get_location_parent_rng_lazy( ).
 

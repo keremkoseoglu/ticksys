@@ -6,6 +6,7 @@ INTERFACE yif_ticksys_ticketing_system
   TYPES ticket_id_list TYPE STANDARD TABLE OF yd_ticksys_ticket_id WITH KEY table_line.
   TYPES status_id_list TYPE STANDARD TABLE OF yd_ticksys_ticket_status_id WITH KEY table_line.
   TYPES type_id_list   TYPE STANDARD TABLE OF yd_ticksys_ticket_type_id WITH KEY table_line.
+  TYPES platform_list  TYPE STANDARD TABLE OF yd_ticksys_ticket_platform WITH KEY table_line.
 
   TYPES: BEGIN OF status_dict,
            status_id   TYPE yd_ticksys_ticket_status_id,
