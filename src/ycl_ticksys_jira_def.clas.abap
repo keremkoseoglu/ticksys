@@ -7,9 +7,6 @@ CLASS ycl_ticksys_jira_def DEFINITION
     TYPES jira_field_list   TYPE STANDARD TABLE OF yd_ticksys_jira_field WITH EMPTY KEY.
     TYPES status_order_list TYPE STANDARD TABLE OF ytticksys_jisto WITH EMPTY KEY.
 
-    TYPES transition_set    TYPE HASHED TABLE OF ytticksys_jitra
-          WITH UNIQUE KEY primary_key COMPONENTS from_status to_status.
-
     CONSTANTS: BEGIN OF field,
                  url      TYPE fieldname VALUE 'URL',
                  username TYPE fieldname VALUE 'USERNAME',
@@ -23,7 +20,6 @@ CLASS ycl_ticksys_jira_def DEFINITION
                END OF table.
 
     DATA: definitions                  TYPE ytticksys_jidef   READ-ONLY,
-          transitions                  TYPE transition_set    READ-ONLY,
           status_assignee_fields       TYPE jista_list        READ-ONLY,
           status_orders                TYPE status_order_list READ-ONLY,
           transport_instruction_fields TYPE jira_field_list   READ-ONLY,
@@ -37,6 +33,15 @@ CLASS ycl_ticksys_jira_def DEFINITION
       RETURNING VALUE(result) TYPE REF TO ycl_ticksys_jira_def
       RAISING   ycx_addict_table_content.
 
+    METHODS get_transition_id
+      IMPORTING from_status    TYPE yd_ticksys_from_status
+                to_status      TYPE yd_ticksys_to_status
+                ticket_type_id TYPE yd_ticksys_ticket_type_id OPTIONAL
+      RETURNING VALUE(result)  TYPE yd_ticksys_transition_id
+      RAISING   ycx_addict_table_content.
+
+    METHODS get_jira_api RETURNING VALUE(result) TYPE REF TO yif_ticksys_jira_api.
+
   PRIVATE SECTION.
     TYPES: BEGIN OF multiton_dict,
              ticsy_id TYPE yd_ticksys_ticsy_id,
@@ -45,7 +50,13 @@ CLASS ycl_ticksys_jira_def DEFINITION
 
            multiton_set TYPE HASHED TABLE OF multiton_dict WITH UNIQUE KEY primary_key COMPONENTS ticsy_id.
 
+    TYPES transition_set TYPE HASHED TABLE OF ytticksys_jitra
+                         WITH UNIQUE KEY primary_key COMPONENTS ticket_type_id from_status to_status.
+
     CLASS-DATA multitons TYPE multiton_set.
+
+    DATA: transitions    TYPE transition_set,
+          jira_api_cache TYPE REF TO yif_ticksys_jira_api.
 
     METHODS constructor
       IMPORTING ticsy_id TYPE yd_ticksys_ticsy_id
@@ -127,5 +138,44 @@ CLASS ycl_ticksys_jira_def IMPLEMENTATION.
     ENDTRY.
 
     result = mt->obj.
+  ENDMETHOD.
+
+  METHOD get_transition_id.
+    ASSIGN me->transitions[ KEY primary_key
+                            ticket_type_id = ticket_type_id
+                            from_status    = from_status
+                            to_status      = to_status ] TO FIELD-SYMBOL(<transition>).
+
+    IF sy-subrc <> 0.
+      ASSIGN me->transitions[ KEY primary_key
+                              ticket_type_id = space
+                              from_status    = from_status
+                              to_status      = to_status ] TO <transition>.
+
+      IF sy-subrc <> 0.
+        RAISE EXCEPTION NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
+                                                      tabname  = me->table-jira_transitions
+                                                      objectid = |{ from_status }-{ to_status }| ).
+      ENDIF.
+    ENDIF.
+
+    result = <transition>-transition_id.
+  ENDMETHOD.
+
+  METHOD get_jira_api.
+    DATA obj TYPE REF TO object.
+
+    IF me->jira_api_cache IS INITIAL.
+      IF me->definitions-api_class IS INITIAL.
+        me->jira_api_cache = CAST #( NEW ycl_ticksys_jira_api_2( ) ).
+      ELSE.
+        CREATE OBJECT obj TYPE (me->definitions-api_class).
+        me->jira_api_cache ?= obj.
+      ENDIF.
+
+      me->jira_api_cache->set_jira_def( me ).
+    ENDIF.
+
+    result = me->jira_api_cache.
   ENDMETHOD.
 ENDCLASS.

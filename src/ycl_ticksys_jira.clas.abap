@@ -26,7 +26,7 @@ CLASS ycl_ticksys_jira DEFINITION
     METHODS get_status_change_transition
       IMPORTING ticket_id     TYPE yd_ticksys_ticket_id
                 status_id     TYPE yd_ticksys_ticket_status_id
-      RETURNING VALUE(result) TYPE REF TO ytticksys_jitra
+      RETURNING VALUE(result) TYPE ytticksys_jitra-transition_id
       RAISING   ycx_ticksys_ticketing_system
                 ycx_ticksys_undefined_status_c.
 
@@ -66,26 +66,19 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
     " Returns the transition needed for status change
     """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-    DATA(current_status) = me->reader->get_jira_issue( ticket_id    = ticket_id
-                                                       bypass_cache = abap_true
-                           )-header-status_id.
+    DATA(ticket_header) = me->reader->get_jira_issue( ticket_id    = ticket_id
+                                                      bypass_cache = abap_true
+                           )-header.
 
     TRY.
-        result = REF #( me->defs->transitions[
-                                        KEY primary_key
-                                        COMPONENTS from_status = current_status
-                                                   to_status   = status_id ] ).
+        result = me->defs->get_transition_id( from_status    = ticket_header-status_id
+                                              to_status      = status_id
+                                              ticket_type_id = ticket_header-type_id ).
 
-      CATCH cx_sy_itab_line_not_found INTO DATA(itab_error).
-        DATA(table_content_error) =
-          NEW ycx_addict_table_content( textid   = ycx_addict_table_content=>no_entry_for_objectid
-                                        previous = itab_error
-                                        tabname  = ycl_ticksys_jira_def=>table-jira_transitions
-                                        objectid = |{ current_status }-{ status_id }| ).
-
+      CATCH cx_root INTO DATA(transition_error).
         RAISE EXCEPTION NEW ycx_ticksys_undefined_status_c(
                                 textid    = ycx_ticksys_undefined_status_c=>ticket_cant_be_set
-                                previous  = table_content_error
+                                previous  = transition_error
                                 ticket_id = ticket_id
                                 status_id = status_id ).
     ENDTRY.
@@ -440,10 +433,10 @@ CLASS ycl_ticksys_jira IMPLEMENTATION.
         DATA(http_client) = me->reader->create_http_client( url ).
 
         " Create body """""""""""""""""""""""""""""""""""""""""""""""
-        DATA(transition) = get_status_change_transition( ticket_id = ticket_id
-                                                         status_id = status_id ).
+        DATA(transition_id) = get_status_change_transition( ticket_id = ticket_id
+                                                            status_id = status_id ).
 
-        DATA(body) = |\{"transition":\{"id":"{ transition->transition_id }"\}\}|.
+        DATA(body) = |\{"transition":\{"id":"{ transition_id }"\}\}|.
         DATA(rest_client) = NEW cl_rest_http_client( http_client ).
 
         DATA(request) = rest_client->if_rest_client~create_request_entity( ).
