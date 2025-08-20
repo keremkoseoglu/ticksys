@@ -81,7 +81,7 @@ CLASS ycl_ticksys_jira_api_3 IMPLEMENTATION.
                                                 ]-value OPTIONAL ).
 
     result-header-assignee           = VALUE #( search_results[ parent = '/issues/1/fields/assignee'
-                                                                name   = 'name'
+                                                                name   = 'displayName'
                                                 ]-value OPTIONAL ).
 
     result-sub_tickets    = VALUE #( FOR GROUPS _value OF _entry IN search_results "#EC CI_SORTSEQ
@@ -121,7 +121,7 @@ CLASS ycl_ticksys_jira_api_3 IMPLEMENTATION.
     ENDLOOP.
 
     LOOP AT me->jira_def->transport_instruction_fields ASSIGNING FIELD-SYMBOL(<tif>).
-      ASSIGN search_results[ parent = |/issues/1/fields|
+      ASSIGN search_results[ parent = |/issues/1/renderedFields|
                              name   = <tif> ]
              TO FIELD-SYMBOL(<tif_value>).
 
@@ -134,6 +134,9 @@ CLASS ycl_ticksys_jira_api_3 IMPLEMENTATION.
         |{ COND #( WHEN result-transport_instructions IS NOT INITIAL THEN ` ` ) }| &&
         |{ <tif_value>-value }|.
     ENDLOOP.
+
+    REPLACE ALL OCCURRENCES OF '<p>' IN result-transport_instructions WITH space.
+    REPLACE ALL OCCURRENCES OF '</p>' IN result-transport_instructions WITH space.
 
     LOOP AT me->jira_def->tcode_fields ASSIGNING FIELD-SYMBOL(<tcf>).
       APPEND LINES OF VALUE yif_ticksys_ticketing_system=>tcode_list( FOR _entry IN search_results
