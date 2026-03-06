@@ -11,11 +11,24 @@ CLASS ycl_ticksys_jira_api_3 DEFINITION
   PROTECTED SECTION.
 
   PRIVATE SECTION.
+    DATA connection_tested TYPE abap_bool.
+
+    METHODS test_connection RAISING ycx_ticksys_ticketing_system.
+
 ENDCLASS.
 
 
 CLASS ycl_ticksys_jira_api_3 IMPLEMENTATION.
+  METHOD test_connection.
+    CHECK connection_tested = abap_false.
+    DATA(url) = |{ me->jira_def->definitions-url }/rest/api/3/myself|.
+    yif_ticksys_jira_api~http_get_jira_rest_api( url ). " Will produce error if not HTTP 200
+    connection_tested = abap_true.
+  ENDMETHOD.
+
   METHOD yif_ticksys_jira_api~search_issues.
+    test_connection( ).
+
     DATA(url) = |{ me->jira_def->definitions-url }/rest/api/3/search/jql| &&
                 |?jql={ cl_http_utility=>escape_url( jql ) }| &&
                 |&fields=*all| &&
@@ -27,6 +40,8 @@ CLASS ycl_ticksys_jira_api_3 IMPLEMENTATION.
 
   METHOD yif_ticksys_jira_api~get_jira_issue.
     " Preparation """""""""""""""""""""""""""""""""""""""""""""""""
+    test_connection( ).
+
     result = VALUE #( ticket_id = ticket_id
                       header    = VALUE #( ticket_id = ticket_id ) ).
 
